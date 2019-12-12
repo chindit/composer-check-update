@@ -1,12 +1,13 @@
-<?php
-declare(strict_types=1);
+#!/usr/bin/env php
 
-require __DIR__.'/vendor/autoload.php';
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
 
 use App\Command\CheckUpdatesCommand;
 use Symfony\Component\Console\Application;
 
-$application = new Application('composer-check-update', '0.0.1');
+$application = new Application('composer-check-update', '1.0.0');
 $command = new CheckUpdatesCommand();
 
 $application->add($command);
