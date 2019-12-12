@@ -29,6 +29,8 @@ class CheckUpdatesCommand extends Command
 	 * @var PackagistService
 	 */
 	private $packagistService;
+	private $updates = [];
+	private $errors = [];
 
 	public function __construct(string $name = null)
 	{
@@ -41,6 +43,7 @@ class CheckUpdatesCommand extends Command
 		parent::configure();
 
 		$this->addOption('composer', '-c', InputOption::VALUE_OPTIONAL, 'The directory where your composer.json is located', getcwd());
+		$this->addOption('no-dev', null, InputOption::VALUE_OPTIONAL, 'Ignore require-dev section', false);
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output)
@@ -57,46 +60,62 @@ class CheckUpdatesCommand extends Command
 
 		// 2) Get dependencies
 		$dependencies = $this->json->getDependencies();
+		$output->writeln(sprintf('<info>Found %s packages in «require» section.  Scanning…</info>', count($dependencies)));
+		$this->scanDependencies($output, $dependencies);
 
-		$output->writeln(sprintf('<info>Found %s packages.  Scanning…</info>', count($dependencies)));
+		// 3) Get dev dependencies
+		if ($input->getOption('no-dev') !== null)
+		{
+			$devDependencies = $this->json->getDevDependencies();
+			$output->writeln(sprintf('<info>Found %s packages in «require-dev» section.  Scanning…</info>', count($devDependencies)));
+			$this->scanDependencies($output, $devDependencies);
+		}
 
+
+		foreach ($this->errors as $error) {
+			$output->writeln($error);
+		}
+
+		if (!empty($this->updates))
+		{
+			$versionTable = new Table($output);
+			$versionTable->setHeaders(
+				[
+					'Package',
+					'Current version',
+					'Last version'
+				]
+			)
+				->addRows($this->updates)
+			;
+
+			$versionTable->render();
+
+			$output->writeln(sprintf('<info>There are %s packages to update.</info>', count($this->updates)));
+		} else {
+			$output->writeln('<info>All packages are up to date</info>');
+		}
+
+		return 1;
+	}
+
+	private function scanDependencies(OutputInterface $output, array $dependencies): void
+	{
 		$progress = new ProgressBar($output, count($dependencies));
-
-		// Stack errors for better display
-		$errors = [];
-		$updates = [];
 
 		foreach ($dependencies as $dependency => $version) {
 			try
 			{
 				if ($update = $this->packagistService->needsUpdate($this->packagistService->checkUpdate($dependency), $version)) {
-					$updates[] = [$dependency, $version, $update];
+					$this->updates[] = [$dependency, $version, $update];
 				}
-			} catch (InvalidPackageException $exception) {
-				$errors[] = sprintf('<error>%s</error>', $exception->getMessage());
+			} catch (\Exception $exception) {
+				$this->errors[] = sprintf('<error>%s</error>', $exception->getMessage());
 			} finally {
 				$progress->advance();
 			}
 		}
 		$progress->finish();
 		$output->writeln('');
-
-		foreach ($errors as $error) {
-			$output->writeln($error);
-		}
-
-		$versionTable = new Table($output);
-		$versionTable->setHeaders([
-			'Package',
-			'Current version',
-			'Last version'
-		])
-		->addRows($updates);
-
-		$versionTable->render();
-
-		$output->writeln(sprintf('<info>There are %s packages to update.</info>', count($updates)));
-
-		return 1;
 	}
 }

@@ -6,8 +6,7 @@
     "require": {
         "php": "^7.2.5",
         "ext-json": "*",
-        "symfony/http-client": "^5.0",
-        "spatie/laravel-authorize": "^"
+        "symfony/http-client": "^5.0"
     },
     "require-dev": {
         "symfony/test-pack": "^1.0",

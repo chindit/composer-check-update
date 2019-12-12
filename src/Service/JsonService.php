@@ -20,6 +20,11 @@ class JsonService
 		return $this->removePhpAndExtensions($this->json['require']);
 	}
 
+	public function getDevDependencies(): array
+	{
+		return $this->removePhpAndExtensions($this->json['require-dev']);
+	}
+
 	private function readComposer(string $composerPath): void
 	{
 		if (!strpos($composerPath, 'composer.json')) {

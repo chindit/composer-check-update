@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Exceptions\InvalidPackageException;
+use App\Exceptions\InvalidPackageVersionException;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -44,6 +45,9 @@ class PackagistService
 	{
 		$versions = preg_grep('/^v?[0-9]+.[0-9]+(.[0-9]+)?(.[0-9]+)?$/', array_keys($package));
 
+		if (empty($versions)) {
+			return '';
+		}
 		return max($versions);
 	}
 
@@ -51,8 +55,7 @@ class PackagistService
 	{
 		// Remove starting 'v'
 		$lastVersion = str_replace('v', '', $lastVersion);
-		$hasUpperBound = strpos($composerVersion, '^') === 0;
-		$hasEqualBound = strpos($composerVersion, '~') === 0;
+
 		// Remove starting '^' for composer version
 		$composerVersion = str_replace('^', '', $composerVersion);
 		$composerVersion = str_replace('~', '', $composerVersion);
@@ -65,9 +68,44 @@ class PackagistService
 		}
 
 		if (version_compare($lastVersion, $composerVersion, '>')) {
-			return $hasUpperBound ? ('^'.$lastVersion) : ($hasEqualBound ? ('~'.$lastVersion) : $lastVersion);
+			return $this->findVersionPattern($composerVersion, $lastVersion);
 		} else {
 			return '';
 		}
+	}
+
+	private function findVersionPattern(string $composerVersion, string $lastVersion): string
+	{
+		$hasUpperBound = strpos($composerVersion, '^') === 0;
+		$hasEqualBound = strpos($composerVersion, '~') === 0;
+		// $hasUpperBound ? ('^'.$lastVersion) : ($hasEqualBound ? ('~'.$lastVersion) : $lastVersion);
+
+		// Check if star operator is present
+		if (strpos($composerVersion, '*') !== false) {
+			// Use star operator for new version
+			$nbChunksBeforeStar = substr_count($composerVersion, '.');
+			// Total of chunks — 1
+			$nbChunksNewVersion = substr_count($lastVersion, '.');
+
+			if ($nbChunksBeforeStar === $nbChunksNewVersion) {
+				$lastVersion = substr($lastVersion, 0, strrpos($lastVersion, '.')) . '.*';
+			} elseif($nbChunksBeforeStar < $nbChunksNewVersion) {
+				$chunks = explode('.', $lastVersion);
+				$chunks = array_slice($chunks, 0, $nbChunksBeforeStar);
+				$chunks[] = '*';
+				$lastVersion = implode('.', $chunks);
+			} else {
+				throw new InvalidPackageVersionException(sprintf('Package version «%s» is not consistent', $composerVersion));
+			}
+		}
+
+		// Check if number of chunks are equals or not
+		if (substr_count($composerVersion, '.') < substr_count($lastVersion, '.')) {
+			$chunks = explode('.', $lastVersion);
+			$chunks = array_slice($chunks, 0, substr_count($composerVersion, '.'));
+			$lastVersion = implode('.', $chunks);
+		}
+
+		return $lastVersion;
 	}
 }
