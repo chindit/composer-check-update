@@ -4,7 +4,11 @@ _composer-check-update_ is a simple tool to see if some of your
 composer dependencies are outdated.
 
 ### Usage
-`php ./main.php`
+`./bin/ccu`
+
+OR
+
+`./ccu.phar`
 
 ### Parameters
 ##### Composer.json path
