@@ -6,6 +6,7 @@
     "require": {
         "php": "^7.2.5",
         "ext-json": "*",
+        "symfony/console": "^5.0",
         "symfony/http-client": "^5.0"
     },
     "require-dev": {
