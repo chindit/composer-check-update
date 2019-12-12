@@ -1,7 +1,7 @@
 {
     "name": "chindit/composer-check-update",
     "description": "CLI tool to view/update Composer dependencies",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "type": "project",
     "require": {
         "php": "^7.2.5",
@@ -12,7 +12,7 @@
         "symfony/test-pack": "^1.0",
         "symfony/maker-bundle": "^1.14"
     },
-    "license": "GNU GPL v3",
+    "license": "GPL-3.0-only",
     "authors": [
         {
             "name": "David Lumaye",

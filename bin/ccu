@@ -7,7 +7,7 @@ require __DIR__ . '/../vendor/autoload.php';
 use App\Command\CheckUpdatesCommand;
 use Symfony\Component\Console\Application;
 
-$application = new Application('composer-check-update', '1.0.0');
+$application = new Application('composer-check-update', '1.0.1');
 $command = new CheckUpdatesCommand();
 
 $application->add($command);

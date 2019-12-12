@@ -55,8 +55,12 @@ class CheckUpdatesCommand extends Command
 		} catch (ComposerNotFoundException $exception) {
 			$output->writeln('<error>Unable to find a composer.json file in «' . $exception->getComposerSearchPath() . '»</error>');
 			$output->writeln('<comment>Try using «-c /path/to/my/project» to specify correct location to your composer.json file</comment>');
+
+			return 0;
 		} catch (InvalidComposerException $exception) {
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
+
+			return 0;
 		}
 
 		// 2) Get dependencies
@@ -111,7 +115,8 @@ class CheckUpdatesCommand extends Command
 				$output->write('<error>An error has occurred during composer.json update</error>');
 				return 0;
 			}
-
+		} else {
+			$output->write('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 		}
 
 		return 1;
