@@ -8,10 +8,12 @@ use App\Exceptions\InvalidComposerException;
 class JsonService
 {
 	private $json;
+	private $composerPath;
 
 	public function __construct(string $composerPath)
 	{
-		$this->readComposer($composerPath);
+		$this->composerPath = $composerPath;
+		$this->readComposer();
 		$this->checkComposer();
 	}
 
@@ -25,17 +27,47 @@ class JsonService
 		return $this->removePhpAndExtensions($this->json['require-dev']);
 	}
 
-	private function readComposer(string $composerPath): void
+	public function isWritable(): bool
 	{
-		if (!strpos($composerPath, 'composer.json')) {
-			$composerPath .= '/composer.json';
+		return is_writable($this->composerPath);
+	}
+
+	public function updateComposer(array $updates): bool
+	{
+		$packagesToUpdate = [];
+		foreach ($updates as $update) {
+			$packagesToUpdate[$update[0]] = $update[2];
+		}
+		$packagesNamesToUpdate = array_keys($packagesToUpdate);
+
+		foreach ($this->json['require'] as $package => $version) {
+			if (in_array($package, $packagesNamesToUpdate, true)) {
+				$this->json['require'][$package] = $packagesToUpdate[$package];
+			}
 		}
 
-		if (!is_readable($composerPath)) {
-			throw new ComposerNotFoundException($composerPath);
+		foreach ($this->json['require-dev'] as $package => $version) {
+			if (in_array($package, $packagesNamesToUpdate, true)) {
+				$this->json['require-dev'][$package] = $packagesToUpdate[$package];
+			}
 		}
 
-		$this->json = json_decode(file_get_contents($composerPath), true);
+		file_put_contents($this->composerPath, json_encode($this->json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+		return true;
+	}
+
+	private function readComposer(): void
+	{
+		if (!strpos($this->composerPath, 'composer.json')) {
+			$this->composerPath .= '/composer.json';
+		}
+
+		if (!is_readable($this->composerPath)) {
+			throw new ComposerNotFoundException($this->composerPath);
+		}
+
+		$this->json = json_decode(file_get_contents($this->composerPath), true);
 	}
 
 	private function checkComposer(): void

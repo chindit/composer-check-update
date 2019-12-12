@@ -44,6 +44,7 @@ class CheckUpdatesCommand extends Command
 
 		$this->addOption('composer', '-c', InputOption::VALUE_OPTIONAL, 'The directory where your composer.json is located', getcwd());
 		$this->addOption('no-dev', null, InputOption::VALUE_OPTIONAL, 'Ignore require-dev section', false);
+		$this->addOption('update', '-u', InputOption::VALUE_OPTIONAL, 'Update composer.json file', false);
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output)
@@ -94,6 +95,23 @@ class CheckUpdatesCommand extends Command
 			$output->writeln(sprintf('<info>There are %s packages to update.</info>', count($this->updates)));
 		} else {
 			$output->writeln('<info>All packages are up to date</info>');
+		}
+
+		if ($input->getOption('update') !== false) {
+			if (!$this->json->isWritable()) {
+				$output->writeln('<error>Your composer.json is not writable</error>');
+				return 0;
+			}
+
+			$output->writeln('<info>Updating composer.json</info>');
+			if ($this->json->updateComposer($this->updates)) {
+				$output->writeln('<info>Composer.json updated.  You can now run «composer update</info>');
+				return 1;
+			} else {
+				$output->write('<error>An error has occurred during composer.json update</error>');
+				return 0;
+			}
+
 		}
 
 		return 1;

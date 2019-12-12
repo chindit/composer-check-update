@@ -57,17 +57,21 @@ class PackagistService
 		$lastVersion = str_replace('v', '', $lastVersion);
 
 		// Remove starting '^' for composer version
-		$composerVersion = str_replace('^', '', $composerVersion);
-		$composerVersion = str_replace('~', '', $composerVersion);
+		$composerVersionCleaned = $composerVersion;
+		$composerVersionCleaned = str_replace('^', '', $composerVersionCleaned);
+		$composerVersionCleaned = str_replace('~', '', $composerVersionCleaned);
+		$composerVersionCleaned = str_replace('.*', '', $composerVersionCleaned);
+		$composerVersionCleaned = str_replace('*', '', $composerVersionCleaned);
 
-		$chunks = substr_count($composerVersion, '.') + 1;
-		$lastVersionChunks = substr_count($lastVersion, '.') + 1;
+		$chunksNumber = substr_count($composerVersionCleaned, '.') + 1;
+		$lastVersionChunksNumber = substr_count($lastVersion, '.') + 1;
 
-		if ($lastVersionChunks > $chunks) {
-			$lastVersion = substr($lastVersion, 0, strrpos($lastVersion, '.'));
+		if ($lastVersionChunksNumber > $chunksNumber) {
+			$lastVersionChunks = explode('.', $lastVersion);
+			$lastVersion = implode('.', array_slice($lastVersionChunks, 0, $chunksNumber));
 		}
 
-		if (version_compare($lastVersion, $composerVersion, '>')) {
+		if (version_compare($lastVersion, $composerVersionCleaned, '>')) {
 			return $this->findVersionPattern($composerVersion, $lastVersion);
 		} else {
 			return '';
@@ -78,7 +82,6 @@ class PackagistService
 	{
 		$hasUpperBound = strpos($composerVersion, '^') === 0;
 		$hasEqualBound = strpos($composerVersion, '~') === 0;
-		// $hasUpperBound ? ('^'.$lastVersion) : ($hasEqualBound ? ('~'.$lastVersion) : $lastVersion);
 
 		// Check if star operator is present
 		if (strpos($composerVersion, '*') !== false) {
@@ -89,23 +92,21 @@ class PackagistService
 
 			if ($nbChunksBeforeStar === $nbChunksNewVersion) {
 				$lastVersion = substr($lastVersion, 0, strrpos($lastVersion, '.')) . '.*';
-			} elseif($nbChunksBeforeStar < $nbChunksNewVersion) {
+			} else {
 				$chunks = explode('.', $lastVersion);
 				$chunks = array_slice($chunks, 0, $nbChunksBeforeStar);
 				$chunks[] = '*';
 				$lastVersion = implode('.', $chunks);
-			} else {
-				throw new InvalidPackageVersionException(sprintf('Package version «%s» is not consistent', $composerVersion));
 			}
 		}
 
 		// Check if number of chunks are equals or not
 		if (substr_count($composerVersion, '.') < substr_count($lastVersion, '.')) {
 			$chunks = explode('.', $lastVersion);
-			$chunks = array_slice($chunks, 0, substr_count($composerVersion, '.'));
+			$chunks = array_slice($chunks, 0, substr_count($composerVersion, '.') + 1);
 			$lastVersion = implode('.', $chunks);
 		}
 
-		return $lastVersion;
+		return $hasUpperBound ? ('^'.$lastVersion) : ($hasEqualBound ? ('~'.$lastVersion) : $lastVersion);
 	}
 }
