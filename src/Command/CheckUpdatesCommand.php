@@ -88,7 +88,7 @@ class CheckUpdatesCommand extends Command
 				[
 					'Package',
 					'Current version',
-					'Last version'
+					'New version'
 				]
 			)
 				->addRows($this->updates)

@@ -48,7 +48,10 @@ class PackagistService
 		if (empty($versions)) {
 			return '';
 		}
-		return max($versions);
+
+		rsort($versions, SORT_NATURAL);
+
+		return $versions[0];
 	}
 
 	public function needsUpdate(string $lastVersion, string $composerVersion): string
@@ -58,10 +61,7 @@ class PackagistService
 
 		// Remove starting '^' for composer version
 		$composerVersionCleaned = $composerVersion;
-		$composerVersionCleaned = str_replace('^', '', $composerVersionCleaned);
-		$composerVersionCleaned = str_replace('~', '', $composerVersionCleaned);
-		$composerVersionCleaned = str_replace('.*', '', $composerVersionCleaned);
-		$composerVersionCleaned = str_replace('*', '', $composerVersionCleaned);
+		$composerVersionCleaned = str_replace(['^', '~', '.*', '*'], '', $composerVersionCleaned);
 
 		$chunksNumber = substr_count($composerVersionCleaned, '.') + 1;
 		$lastVersionChunksNumber = substr_count($lastVersion, '.') + 1;
@@ -71,11 +71,17 @@ class PackagistService
 			$lastVersion = implode('.', array_slice($lastVersionChunks, 0, $chunksNumber));
 		}
 
-		if (version_compare($lastVersion, $composerVersionCleaned, '>')) {
+		/**
+		 * Output for version_compare is
+		 * -1 if $lastVersion is OLDER (smaller) THAN $composerVersionCleaned
+		 * 0 if $lastVersion is EQUAL TO $composerVersionCleaned
+		 * 1 if $lastVersion is NEWER (greater) THAN $composerVersionCleaned
+		 */
+		if (version_compare($lastVersion, $composerVersionCleaned) === 1) {
 			return $this->findVersionPattern($composerVersion, $lastVersion);
-		} else {
-			return '';
 		}
+
+		return '';
 	}
 
 	private function findVersionPattern(string $composerVersion, string $lastVersion): string
