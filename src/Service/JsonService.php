@@ -24,7 +24,7 @@ class JsonService
 
 	public function getDevDependencies(): array
 	{
-		return $this->removePhpAndExtensions($this->json['require-dev']);
+		return $this->removePhpAndExtensions($this->json['require-dev'] ?? []);
 	}
 
 	public function isWritable(): bool
