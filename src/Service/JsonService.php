@@ -10,6 +10,10 @@ class JsonService
 	private array $json;
 	private string $composerPath;
 
+	/**
+	 * @throws InvalidComposerException
+	 * @throws \JsonException
+	 */
 	public function __construct(string $composerPath)
 	{
 		$this->composerPath = $composerPath;
@@ -32,6 +36,9 @@ class JsonService
 		return is_writable($this->composerPath);
 	}
 
+	/**
+	 * @throws \JsonException
+	 */
 	public function updateComposer(array $updates): bool
 	{
 		$packagesToUpdate = [];
@@ -57,6 +64,9 @@ class JsonService
 		return true;
 	}
 
+	/**
+	 * @throws \JsonException
+	 */
 	private function readComposer(): void
 	{
 		if (!strpos($this->composerPath, 'composer.json')) {
@@ -70,6 +80,9 @@ class JsonService
 		$this->json = json_decode(file_get_contents($this->composerPath), true, 2,JSON_THROW_ON_ERROR);
 	}
 
+	/**
+	 * @throws InvalidComposerException
+	 */
 	private function checkComposer(): void
 	{
 		if (!isset($this->json['require']) && !isset($this->json['require-dev'])) {
