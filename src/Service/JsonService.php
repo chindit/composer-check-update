@@ -7,8 +7,8 @@ use App\Exceptions\InvalidComposerException;
 
 class JsonService
 {
-	private $json;
-	private $composerPath;
+	private array $json;
+	private string $composerPath;
 
 	public function __construct(string $composerPath)
 	{
@@ -52,7 +52,7 @@ class JsonService
 			}
 		}
 
-		file_put_contents($this->composerPath, json_encode($this->json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+		file_put_contents($this->composerPath, json_encode($this->json, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
 		return true;
 	}
@@ -67,7 +67,7 @@ class JsonService
 			throw new ComposerNotFoundException($this->composerPath);
 		}
 
-		$this->json = json_decode(file_get_contents($this->composerPath), true);
+		$this->json = json_decode(file_get_contents($this->composerPath), true, 2,JSON_THROW_ON_ERROR);
 	}
 
 	private function checkComposer(): void

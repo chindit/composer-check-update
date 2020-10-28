@@ -3,16 +3,12 @@
 namespace App\Service;
 
 use App\Exceptions\InvalidPackageException;
-use App\Exceptions\InvalidPackageVersionException;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class PackagistService
 {
-	/**
-	 * @var HttpClientInterface
-	 */
-	private $httpClient;
+	private HttpClientInterface $httpClient;
 
 	public function __construct(HttpClientInterface $httpClient)
 	{
@@ -113,6 +109,13 @@ class PackagistService
 			$lastVersion = implode('.', $chunks);
 		}
 
-		return $hasUpperBound ? ('^'.$lastVersion) : ($hasEqualBound ? ('~'.$lastVersion) : $lastVersion);
+		if ($hasUpperBound) {
+			return '^'.$lastVersion;
+		}
+		if ($hasEqualBound) {
+			return '~'.$lastVersion;
+		}
+
+		return $lastVersion;
 	}
 }

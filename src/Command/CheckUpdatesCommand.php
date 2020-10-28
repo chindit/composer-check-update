@@ -5,7 +5,6 @@ namespace App\Command;
 
 use App\Exceptions\ComposerNotFoundException;
 use App\Exceptions\InvalidComposerException;
-use App\Exceptions\InvalidPackageException;
 use App\Service\JsonService;
 use App\Service\PackagistService;
 use Symfony\Component\Console\Command\Command;
@@ -20,17 +19,10 @@ class CheckUpdatesCommand extends Command
 {
 	public static $defaultName = 'app:check-updates';
 
-	/**
-	 * @var JsonService
-	 */
-	private $json;
-
-	/**
-	 * @var PackagistService
-	 */
-	private $packagistService;
-	private $updates = [];
-	private $errors = [];
+	private JsonService $json;
+	private PackagistService $packagistService;
+	private array $updates = [];
+	private array $errors = [];
 
 	public function __construct(string $name = null)
 	{
@@ -38,7 +30,7 @@ class CheckUpdatesCommand extends Command
 		$this->packagistService = new PackagistService(HttpClient::create());
 	}
 
-	protected function configure()
+	protected function configure(): void
 	{
 		parent::configure();
 
@@ -47,7 +39,7 @@ class CheckUpdatesCommand extends Command
 		$this->addOption('update', '-u', InputOption::VALUE_OPTIONAL, 'Update composer.json file', false);
 	}
 
-	protected function execute(InputInterface $input, OutputInterface $output)
+	protected function execute(InputInterface $input, OutputInterface $output): int
 	{
 		// 1) Create JsonService
 		try {
@@ -61,6 +53,8 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
 
 			return 0;
+		} catch (\JsonException $exception) {
+			$output->writeln('<error>Your composer.json does not contains valid JSON</error>');
 		}
 
 		// 2) Get dependencies
@@ -111,13 +105,14 @@ class CheckUpdatesCommand extends Command
 			if ($this->json->updateComposer($this->updates)) {
 				$output->writeln('<info>Composer.json updated.  You can now run «composer update</info>');
 				return 1;
-			} else {
-				$output->write('<error>An error has occurred during composer.json update</error>');
-				return 0;
 			}
-		} else {
-			$output->write('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
+
+			$output->write('<error>An error has occurred during composer.json update</error>');
+
+			return 0;
 		}
+
+		$output->write('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 
 		return 1;
 	}

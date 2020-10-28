@@ -4,7 +4,7 @@
     "version": "1.0.4",
     "type": "project",
     "require": {
-        "php": "^7.2.5",
+        "php": "^7.4",
         "ext-json": "*",
         "symfony/console": "^5.1",
         "symfony/http-client": "^5.1"

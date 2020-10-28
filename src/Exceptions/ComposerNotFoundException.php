@@ -6,10 +6,7 @@ use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 
 class ComposerNotFoundException extends FileNotFoundException
 {
-	/**
-	 * @var string
-	 */
-	private $composerSearchPath;
+	private string $composerSearchPath;
 
 	public function __construct(string $composerSearchPath, string $message = null, int $code = 0, \Throwable $previous = null, string $path = null)
 	{
