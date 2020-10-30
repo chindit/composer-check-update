@@ -77,7 +77,7 @@ class JsonService
 			throw new ComposerNotFoundException($this->composerPath);
 		}
 
-		$this->json = json_decode(file_get_contents($this->composerPath), true, 2,JSON_THROW_ON_ERROR);
+		$this->json = json_decode(file_get_contents($this->composerPath), true, 5,JSON_THROW_ON_ERROR);
 	}
 
 	/**

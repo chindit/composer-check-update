@@ -55,6 +55,8 @@ class CheckUpdatesCommand extends Command
 			return 0;
 		} catch (\JsonException $exception) {
 			$output->writeln('<error>Your composer.json does not contains valid JSON</error>');
+
+			return 0;
 		}
 
 		// 2) Get dependencies
