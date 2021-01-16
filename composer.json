@@ -1,17 +1,17 @@
 {
     "name": "chindit/composer-check-update",
     "description": "CLI tool to view/update Composer dependencies",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "type": "project",
     "require": {
-        "php": "^7.4",
+        "php": "^7.4|^8.0",
         "ext-json": "*",
-        "symfony/console": "^5.1",
-        "symfony/http-client": "^5.1"
+        "symfony/console": "^5.2",
+        "symfony/http-client": "^5.2"
     },
     "require-dev": {
         "symfony/test-pack": "^1.0",
-        "symfony/maker-bundle": "^1.22"
+        "symfony/maker-bundle": "^1.28"
     },
     "license": "GPL-3.0-only",
     "authors": [
