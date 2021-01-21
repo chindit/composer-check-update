@@ -3,6 +3,12 @@
 _composer-check-update_ is a simple tool to see if some of your
 composer dependencies are outdated.
 
+A dependency listed in <span style="color:red">red is a **major** update</span>.
+
+A dependency listed in <span style="color:cyan">cyan is a **minor** update</span>.
+
+A dependency listed in <span style="color:green">green is a **patch** update</span>.
+
 ### Usage
 `./bin/ccu`
 

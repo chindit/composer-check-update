@@ -74,7 +74,7 @@ class PackagistService
 		 * 1 if $lastVersion is NEWER (greater) THAN $composerVersionCleaned
 		 */
 		if (version_compare($lastVersion, $composerVersionCleaned) === 1) {
-			return $this->findVersionPattern($composerVersion, $lastVersion);
+            return $this->findVersionPattern($composerVersion, $lastVersion);
 		}
 
 		return '';

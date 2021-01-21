@@ -7,6 +7,8 @@ use App\Exceptions\ComposerNotFoundException;
 use App\Exceptions\InvalidComposerException;
 use App\Service\JsonService;
 use App\Service\PackagistService;
+use Exception;
+use JsonException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -53,7 +55,7 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
 
 			return 0;
-		} catch (\JsonException $exception) {
+		} catch (JsonException $exception) {
 			$output->writeln('<error>Your composer.json does not contains valid JSON</error>');
 
 			return 0;
@@ -79,6 +81,8 @@ class CheckUpdatesCommand extends Command
 
 		if (!empty($this->updates))
 		{
+		    $this->addColors();
+
 			$versionTable = new Table($output);
 			$versionTable->setHeaders(
 				[
@@ -109,12 +113,12 @@ class CheckUpdatesCommand extends Command
 				return 1;
 			}
 
-			$output->write('<error>An error has occurred during composer.json update</error>');
+			$output->writeln('<error>An error has occurred during composer.json update</error>');
 
 			return 0;
 		}
 
-		$output->write('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
+		$output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 
 		return 1;
 	}
@@ -129,7 +133,7 @@ class CheckUpdatesCommand extends Command
 				if ($update = $this->packagistService->needsUpdate($this->packagistService->checkUpdate($dependency), $version)) {
 					$this->updates[] = [$dependency, $version, $update];
 				}
-			} catch (\Exception $exception) {
+			} catch (Exception $exception) {
 				$this->errors[] = sprintf('<error>%s</error>', $exception->getMessage());
 			} finally {
 				$progress->advance();
@@ -138,4 +142,31 @@ class CheckUpdatesCommand extends Command
 		$progress->finish();
 		$output->writeln('');
 	}
+
+	private function addColors(): void
+    {
+        foreach ($this->updates as $index => $update) {
+            // Is it a major release, a minor, or a patch ?
+            $lastVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[2]));
+            $composerVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[1]));
+            $isMajor = $lastVersionChunks[0] > $composerVersionChunks[0];
+
+            /**
+             * Special SemVer case: if major is 0, all changes must be considered as major
+             */
+            if ($composerVersionChunks[0] === '0') {
+                $isMajor = true;
+            }
+
+            $isMinor = count($composerVersionChunks) >= 2 && count($lastVersionChunks) >= 2 && $lastVersionChunks[1] > $composerVersionChunks[1];
+
+            $colorName = ($isMajor ? 'red' : ($isMinor ? 'cyan' : 'green'));
+
+            $update[0] = '<fg=' . $colorName . '>' . $update[0] . '</>';
+            $update[1] = '<fg=' . $colorName . '>' . $update[1] . '</>';
+            $update[2] = '<fg=' . $colorName . '>' . $update[2] . '</>';
+
+            $this->updates[$index] = $update;
+        }
+    }
 }
