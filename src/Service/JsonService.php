@@ -2,8 +2,8 @@
 
 namespace App\Service;
 
-use App\Exceptions\ComposerNotFoundException;
-use App\Exceptions\InvalidComposerException;
+use App\Exception\ComposerNotFoundException;
+use App\Exception\InvalidComposerException;
 
 class JsonService
 {

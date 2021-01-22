@@ -6,6 +6,7 @@
     "require": {
         "php": "^7.4|^8.0",
         "ext-json": "*",
+        "chindit/collection": "^1.0.3",
         "symfony/console": "^5.2",
         "symfony/http-client": "^5.2"
     },

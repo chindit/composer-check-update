@@ -3,10 +3,12 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Exceptions\ComposerNotFoundException;
-use App\Exceptions\InvalidComposerException;
+use App\Exception\ComposerNotFoundException;
+use App\Exception\InvalidComposerException;
+use App\Model\Package;
 use App\Service\JsonService;
 use App\Service\PackagistService;
+use Chindit\Collection\Collection;
 use Exception;
 use JsonException;
 use Symfony\Component\Console\Command\Command;
@@ -23,12 +25,14 @@ class CheckUpdatesCommand extends Command
 
 	private JsonService $json;
 	private PackagistService $packagistService;
-	private array $updates = [];
+	private Collection $packages;
 	private array $errors = [];
 
 	public function __construct(string $name = null)
 	{
 		parent::__construct($name);
+
+		$this->packages = new Collection();
 		$this->packagistService = new PackagistService(HttpClient::create());
 	}
 
@@ -79,7 +83,9 @@ class CheckUpdatesCommand extends Command
 			$output->writeln($error);
 		}
 
-		if (!empty($this->updates))
+		$updatablePackages = $this->packages->filter(fn(Package $package) => $package->isUpdatable());
+
+		if ($updatablePackages->isNotEmpty())
 		{
 		    $this->addColors();
 
@@ -91,12 +97,21 @@ class CheckUpdatesCommand extends Command
 					'New version'
 				]
 			)
-				->addRows($this->updates)
+				->addRows($updatablePackages
+                    ->map(function(Package $package) {
+                        return [
+                            $package->getName(),
+                            $package->getActualVersion()->getVersion(),
+                            $package->getNewVersion()->getVersion()
+                        ];
+                    })
+                    ->toArray()
+                )
 			;
 
 			$versionTable->render();
 
-			$output->writeln(sprintf('<info>There are %s packages to update.</info>', count($this->updates)));
+			$output->writeln(sprintf('<info>There are %s packages to update.</info>', $updatablePackages->count()));
 		} else {
 			$output->writeln('<info>All packages are up to date</info>');
 		}
@@ -108,7 +123,7 @@ class CheckUpdatesCommand extends Command
 			}
 
 			$output->writeln('<info>Updating composer.json</info>');
-			if ($this->json->updateComposer($this->updates)) {
+			if ($this->json->updateComposer($this->packages)) {
 				$output->writeln('<info>Composer.json updated.  You can now run «composer update</info>');
 				return 1;
 			}
@@ -130,9 +145,9 @@ class CheckUpdatesCommand extends Command
 		foreach ($dependencies as $dependency => $version) {
 			try
 			{
-				if ($update = $this->packagistService->needsUpdate($this->packagistService->checkUpdate($dependency), $version)) {
-					$this->updates[] = [$dependency, $version, $update];
-				}
+                $this->packages->push(
+                    new Package($dependency, $version, $this->packagistService->checkPackage($dependency))
+                );
 			} catch (Exception $exception) {
 				$this->errors[] = sprintf('<error>%s</error>', $exception->getMessage());
 			} finally {
@@ -145,7 +160,7 @@ class CheckUpdatesCommand extends Command
 
 	private function addColors(): void
     {
-        foreach ($this->updates as $index => $update) {
+        foreach ($this->packages as $index => $update) {
             // Is it a major release, a minor, or a patch ?
             $lastVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[2]));
             $composerVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[1]));
@@ -166,7 +181,7 @@ class CheckUpdatesCommand extends Command
             $update[1] = '<fg=' . $colorName . '>' . $update[1] . '</>';
             $update[2] = '<fg=' . $colorName . '>' . $update[2] . '</>';
 
-            $this->updates[$index] = $update;
+            $this->packages[$index] = $update;
         }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Exceptions\InvalidPackageException;
+use App\Exception\InvalidPackageException;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -15,7 +15,7 @@ class PackagistService
 		$this->httpClient = $httpClient;
 	}
 
-	public function checkUpdate(string $dependency): string
+	public function checkPackage(string $dependency): string
 	{
 		try
 		{
@@ -37,7 +37,7 @@ class PackagistService
 		}
 	}
 
-	public function getLastVersionFromResponse(array $package): string
+	private function getLastVersionFromResponse(array $package): string
 	{
 		$versions = preg_grep('/^v?[0-9]+.[0-9]+(.[0-9]+)?(.[0-9]+)?$/', array_keys($package));
 
@@ -80,6 +80,10 @@ class PackagistService
 		return '';
 	}
 
+    /**
+     * TODO Improve and return only modifier
+     * https://getcomposer.org/doc/articles/versions.md#writing-version-constraints
+     */
 	private function findVersionPattern(string $composerVersion, string $lastVersion): string
 	{
 		$hasUpperBound = strpos($composerVersion, '^') === 0;

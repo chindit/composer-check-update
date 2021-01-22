@@ -4,8 +4,51 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b84458e4bee7d8e113d4cf3f113dd4ff",
+    "content-hash": "e6c61a464d55106b31f9974476896376",
     "packages": [
+        {
+            "name": "chindit/collection",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/chindit/collection.git",
+                "reference": "198adc835abdd26f73a4ae01795e52325b2cb76b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/chindit/collection/zipball/198adc835abdd26f73a4ae01795e52325b2cb76b",
+                "reference": "198adc835abdd26f73a4ae01795e52325b2cb76b",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.4.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Chindit\\Collection\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "GPL-3.0-or-later"
+            ],
+            "authors": [
+                {
+                    "name": "David Lumaye",
+                    "email": "littletiger58@gmail.com"
+                }
+            ],
+            "description": "Small array wrapper to ease array handling",
+            "support": {
+                "issues": "https://github.com/chindit/collection/issues",
+                "source": "https://github.com/chindit/collection/tree/1.0.3"
+            },
+            "time": "2021-01-22T13:06:37+00:00"
+        },
         {
             "name": "psr/container",
             "version": "1.0.0",
