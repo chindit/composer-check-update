@@ -4,9 +4,12 @@ namespace App\Service;
 
 use App\Exception\ComposerNotFoundException;
 use App\Exception\InvalidComposerException;
+use App\Model\Package;
+use Chindit\Collection\Collection;
 
 class JsonService
 {
+    /** @var array<string, array<string, string> >  */
 	private array $json;
 	private string $composerPath;
 
@@ -21,11 +24,17 @@ class JsonService
 		$this->checkComposer();
 	}
 
+    /**
+     * @return string[]
+     */
 	public function getDependencies(): array
 	{
 		return $this->removePhpAndExtensions($this->json['require']);
 	}
 
+    /**
+     * @return string[]
+     */
 	public function getDevDependencies(): array
 	{
 		return $this->removePhpAndExtensions($this->json['require-dev'] ?? []);
@@ -36,27 +45,29 @@ class JsonService
 		return is_writable($this->composerPath);
 	}
 
-	/**
-	 * @throws \JsonException
-	 */
-	public function updateComposer(array $updates): bool
+    /**
+     * @param Collection|Package[] $updates
+     * @return bool
+     * @throws \JsonException
+     */
+	public function updateComposer(Collection $updates): bool
 	{
-		$packagesToUpdate = [];
-		foreach ($updates as $update) {
-			$packagesToUpdate[$update[0]] = $update[2];
-		}
-		$packagesNamesToUpdate = array_keys($packagesToUpdate);
+	    $packagesToUpdate = $updates->keyBy(fn(Package $package) => $package->getName());
 
-		foreach ($this->json['require'] as $package => $version) {
-			if (in_array($package, $packagesNamesToUpdate, true)) {
-				$this->json['require'][$package] = $packagesToUpdate[$package];
+		foreach ($this->json['require'] as $packageName => $version) {
+			if ($packagesToUpdate->has($packageName)) {
+			    /** @var Package $package */
+			    $package = $packagesToUpdate->get($packageName);
+				$this->json['require'][$packageName] = $package->getNewVersionToString();
 			}
 		}
 
-		foreach ($this->json['require-dev'] as $package => $version) {
-			if (in_array($package, $packagesNamesToUpdate, true)) {
-				$this->json['require-dev'][$package] = $packagesToUpdate[$package];
-			}
+		foreach ($this->json['require-dev'] as $packageName => $version) {
+            if ($packagesToUpdate->has($packageName)) {
+                /** @var Package $package */
+                $package = $packagesToUpdate->get($packageName);
+                $this->json['require-dev'][$packageName] = $package->getNewVersionToString();
+            }
 		}
 
 		file_put_contents($this->composerPath, json_encode($this->json, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -90,6 +101,10 @@ class JsonService
 		}
 	}
 
+    /**
+     * @param array<string, string> $dependencies
+     * @return array<string, string>
+     */
 	private function removePhpAndExtensions(array $dependencies): array
 	{
 		$keys = array_keys($dependencies);

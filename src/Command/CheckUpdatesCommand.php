@@ -25,7 +25,9 @@ class CheckUpdatesCommand extends Command
 
 	private JsonService $json;
 	private PackagistService $packagistService;
+	/** @var Collection<int, Package> */
 	private Collection $packages;
+	/** @var array<int, string> */
 	private array $errors = [];
 
 	public function __construct(string $name = null)
@@ -54,15 +56,15 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<error>Unable to find a composer.json file in «' . $exception->getComposerSearchPath() . '»</error>');
 			$output->writeln('<comment>Try using «-c /path/to/my/project» to specify correct location to your composer.json file</comment>');
 
-			return 0;
+			return Command::FAILURE;
 		} catch (InvalidComposerException $exception) {
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
 
-			return 0;
+			return Command::FAILURE;
 		} catch (JsonException $exception) {
 			$output->writeln('<error>Your composer.json does not contains valid JSON</error>');
 
-			return 0;
+			return Command::FAILURE;
 		}
 
 		// 2) Get dependencies
@@ -87,8 +89,6 @@ class CheckUpdatesCommand extends Command
 
 		if ($updatablePackages->isNotEmpty())
 		{
-		    $this->addColors();
-
 			$versionTable = new Table($output);
 			$versionTable->setHeaders(
 				[
@@ -99,11 +99,7 @@ class CheckUpdatesCommand extends Command
 			)
 				->addRows($updatablePackages
                     ->map(function(Package $package) {
-                        return [
-                            $package->getName(),
-                            $package->getActualVersion()->getVersion(),
-                            $package->getNewVersion()->getVersion()
-                        ];
+                        return $package->toTableArray();
                     })
                     ->toArray()
                 )
@@ -119,25 +115,28 @@ class CheckUpdatesCommand extends Command
 		if ($input->getOption('update') !== false) {
 			if (!$this->json->isWritable()) {
 				$output->writeln('<error>Your composer.json is not writable</error>');
-				return 0;
+				return Command::FAILURE;
 			}
 
 			$output->writeln('<info>Updating composer.json</info>');
 			if ($this->json->updateComposer($this->packages)) {
 				$output->writeln('<info>Composer.json updated.  You can now run «composer update</info>');
-				return 1;
+				return Command::SUCCESS;
 			}
 
 			$output->writeln('<error>An error has occurred during composer.json update</error>');
 
-			return 0;
+			return Command::FAILURE;
 		}
 
 		$output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 
-		return 1;
+		return Command::SUCCESS;
 	}
 
+    /**
+     * @param array<string, string> $dependencies
+     */
 	private function scanDependencies(OutputInterface $output, array $dependencies): void
 	{
 		$progress = new ProgressBar($output, count($dependencies));
@@ -157,31 +156,4 @@ class CheckUpdatesCommand extends Command
 		$progress->finish();
 		$output->writeln('');
 	}
-
-	private function addColors(): void
-    {
-        foreach ($this->packages as $index => $update) {
-            // Is it a major release, a minor, or a patch ?
-            $lastVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[2]));
-            $composerVersionChunks = explode('.', str_replace(['^', '~', '.*', '*'], '',$update[1]));
-            $isMajor = $lastVersionChunks[0] > $composerVersionChunks[0];
-
-            /**
-             * Special SemVer case: if major is 0, all changes must be considered as major
-             */
-            if ($composerVersionChunks[0] === '0') {
-                $isMajor = true;
-            }
-
-            $isMinor = count($composerVersionChunks) >= 2 && count($lastVersionChunks) >= 2 && $lastVersionChunks[1] > $composerVersionChunks[1];
-
-            $colorName = ($isMajor ? 'red' : ($isMinor ? 'cyan' : 'green'));
-
-            $update[0] = '<fg=' . $colorName . '>' . $update[0] . '</>';
-            $update[1] = '<fg=' . $colorName . '>' . $update[1] . '</>';
-            $update[2] = '<fg=' . $colorName . '>' . $update[2] . '</>';
-
-            $this->packages[$index] = $update;
-        }
-    }
 }

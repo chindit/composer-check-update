@@ -37,9 +37,18 @@ class PackagistService
 		}
 	}
 
+    /**
+     * @param array<string, array> $package
+     * @return string
+     * @throws InvalidPackageException
+     */
 	private function getLastVersionFromResponse(array $package): string
 	{
 		$versions = preg_grep('/^v?[0-9]+.[0-9]+(.[0-9]+)?(.[0-9]+)?$/', array_keys($package));
+		if ($versions === false) {
+            throw new InvalidPackageException('Package version is not understandable');
+        }
+		$versions = preg_replace('/[^0-9\.]/', '', $versions);
 
 		if (empty($versions)) {
 			return '';
@@ -86,11 +95,11 @@ class PackagistService
      */
 	private function findVersionPattern(string $composerVersion, string $lastVersion): string
 	{
-		$hasUpperBound = strpos($composerVersion, '^') === 0;
-		$hasEqualBound = strpos($composerVersion, '~') === 0;
+		$hasUpperBound = str_starts_with($composerVersion, '^');
+		$hasEqualBound = str_starts_with($composerVersion, '~');
 
 		// Check if star operator is present
-		if (strpos($composerVersion, '*') !== false) {
+		if (str_contains($composerVersion, '*')) {
 			// Use star operator for new version
 			$nbChunksBeforeStar = substr_count($composerVersion, '.');
 			// Total of chunks — 1
