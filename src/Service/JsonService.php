@@ -25,19 +25,19 @@ class JsonService
 	}
 
     /**
-     * @return string[]
+     * @return Collection<string, string>
      */
-	public function getDependencies(): array
+	public function getDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions($this->json['require']);
+		return $this->removePhpAndExtensions(new Collection($this->json['require']));
 	}
 
     /**
-     * @return string[]
+     * @return Collection<string, string>
      */
-	public function getDevDependencies(): array
+	public function getDevDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions($this->json['require-dev'] ?? []);
+		return $this->removePhpAndExtensions(new Collection($this->json['require-dev'] ?? []));
 	}
 
 	public function isWritable(): bool
@@ -80,7 +80,7 @@ class JsonService
 	 */
 	private function readComposer(): void
 	{
-		if (!strpos($this->composerPath, 'composer.json')) {
+		if (!str_ends_with($this->composerPath, 'composer.json')) {
 			$this->composerPath .= '/composer.json';
 		}
 
@@ -102,19 +102,15 @@ class JsonService
 	}
 
     /**
-     * @param array<string, string> $dependencies
-     * @return array<string, string>
+     * @param Collection<string, string> $dependencies
+     * @return Collection<string, string>
      */
-	private function removePhpAndExtensions(array $dependencies): array
+	private function removePhpAndExtensions(Collection $dependencies): Collection
 	{
-		$keys = array_keys($dependencies);
-
-		foreach ($keys as $key) {
-			if ($key === 'php' || (stripos($key, 'ext-') === 0 && strpos($key, '/') === false)) {
-				unset($dependencies[$key]);
-			}
-		}
-
-		return $dependencies;
+	    return $dependencies->filter(function(string $version, string $packageName)
+        {
+            return $packageName !== 'php'
+                && !(str_starts_with($packageName, 'ext-') && !str_contains($packageName, '/'));
+        });
 	}
 }

@@ -69,14 +69,14 @@ class CheckUpdatesCommand extends Command
 
 		// 2) Get dependencies
 		$dependencies = $this->json->getDependencies();
-		$output->writeln(sprintf('<info>Found %s packages in «require» section.  Scanning…</info>', count($dependencies)));
+		$output->writeln(sprintf('<info>Found %s packages in «require» section.  Scanning…</info>', $dependencies->count()));
 		$this->scanDependencies($output, $dependencies);
 
 		// 3) Get dev dependencies
 		if ($input->getOption('no-dev') !== null)
 		{
 			$devDependencies = $this->json->getDevDependencies();
-			$output->writeln(sprintf('<info>Found %s packages in «require-dev» section.  Scanning…</info>', count($devDependencies)));
+			$output->writeln(sprintf('<info>Found %s packages in «require-dev» section.  Scanning…</info>', $devDependencies->count()));
 			$this->scanDependencies($output, $devDependencies);
 		}
 
@@ -135,24 +135,26 @@ class CheckUpdatesCommand extends Command
 	}
 
     /**
-     * @param array<string, string> $dependencies
+     * @param Collection<string, string> $dependencies
      */
-	private function scanDependencies(OutputInterface $output, array $dependencies): void
+	private function scanDependencies(OutputInterface $output, Collection $dependencies): void
 	{
-		$progress = new ProgressBar($output, count($dependencies));
+		$progress = new ProgressBar($output, $dependencies->count());
 
-		foreach ($dependencies as $dependency => $version) {
-			try
-			{
+		$dependencies->each(function(string $version, string $dependency) use ($progress)
+        {
+            try
+            {
                 $this->packages->push(
                     new Package($dependency, $version, $this->packagistService->checkPackage($dependency))
                 );
-			} catch (Exception $exception) {
-				$this->errors[] = sprintf('<error>%s</error>', $exception->getMessage());
-			} finally {
-				$progress->advance();
-			}
-		}
+            } catch (Exception $exception) {
+                $this->errors[] = sprintf('<error>%s</error>', $exception->getMessage());
+            } finally {
+                $progress->advance();
+            }
+        });
+
 		$progress->finish();
 		$output->writeln('');
 	}
