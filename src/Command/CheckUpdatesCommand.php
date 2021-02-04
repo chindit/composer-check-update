@@ -133,7 +133,7 @@ class CheckUpdatesCommand extends Command
                     'minor' => $package->isMinorUpdate() || $package->isPatchUpdate(),
                     'patch' => $package->isPatchUpdate(),
                     'none'  => false,
-                    default => true,
+                    default => $package->isUpdatable(),
                 };
             })->keyBy(fn(Package $package) => $package->getName());
         } elseif ($input->getOption('update') !== false) {
