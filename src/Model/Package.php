@@ -63,20 +63,7 @@ final class Package
      */
     public function toTableArray(): array
     {
-        $isMajorUpdate = $this->getActualVersion()->getMajor() < $this->getNewVersion()->getMajor();
-        /**
-         * Special SemVer case: if major is 0, all changes must be considered as major
-         */
-        if ($this->getActualVersion()->getMajor() === '0') {
-            $isMajorUpdate = true;
-        }
-
-        $isMinorUpdate =
-            $this->getActualVersion()->getMinor()
-            && $this->getNewVersion()->getMinor()
-            && $this->getActualVersion()->getMinor() < $this->getNewVersion()->getMinor();
-
-        $colorName = ($isMajorUpdate ? self::MAJOR_COLOR : ($isMinorUpdate ? self::MINOR_COLOR : self::PATCH_COLOR));
+        $colorName = ($this->isMajorUpdate() ? self::MAJOR_COLOR : ($this->isMinorUpdate() ? self::MINOR_COLOR : self::PATCH_COLOR));
 
         $update = [];
         $update[0] = '<fg=' . $colorName . '>' . $this->getName() . '</>';
@@ -104,6 +91,32 @@ final class Package
     public function getUpperBound(): ?Version
     {
         return $this->upperBound;
+    }
+
+    public function isMajorUpdate(): bool
+    {
+        /**
+         * Special SemVer case: if major is 0, all changes must be considered as major
+         */
+        return $this->getActualVersion()->getMajor() < $this->getNewVersion()->getMajor()
+            || $this->getActualVersion()->getMajor() === 0;
+    }
+
+    public function isMinorUpdate(): bool
+    {
+        return !$this->isMajorUpdate()
+        && $this->getActualVersion()->getMinor()
+        && $this->getNewVersion()->getMinor()
+        && $this->getActualVersion()->getMinor() < $this->getNewVersion()->getMinor();
+    }
+
+    public function isPatchUpdate(): bool
+    {
+        return !$this->isMajorUpdate()
+            && !$this->isMinorUpdate()
+            && $this->getActualVersion()->getPatch()
+            && $this->getNewVersion()->getPatch()
+            && $this->getActualVersion()->getPatch() < $this->getNewVersion()->getPatch();
     }
 
     /**

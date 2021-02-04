@@ -17,6 +17,7 @@ use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\HttpClient\HttpClient;
 
 class CheckUpdatesCommand extends Command
@@ -45,6 +46,7 @@ class CheckUpdatesCommand extends Command
 		$this->addOption('composer', '-c', InputOption::VALUE_OPTIONAL, 'The directory where your composer.json is located', getcwd());
 		$this->addOption('no-dev', null, InputOption::VALUE_OPTIONAL, 'Ignore require-dev section', false);
 		$this->addOption('update', '-u', InputOption::VALUE_OPTIONAL, 'Update composer.json file', false);
+		$this->addOption('interactive', '-i', InputOption::VALUE_OPTIONAL, 'Set mode to interactive', false);
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int
@@ -112,26 +114,56 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<info>All packages are up to date</info>');
 		}
 
-		if ($input->getOption('update') !== false) {
-			if (!$this->json->isWritable()) {
-				$output->writeln('<error>Your composer.json is not writable</error>');
-				return Command::FAILURE;
-			}
+        $packagesToUpdate = new Collection();
+        if ($input->getOption('interactive') !== false) {
+            $helper = $this->getHelper('question');
+            $question = new ChoiceQuestion(
+                'Do you want to update all packages, minors and patch, patch only or mothing ?',
+                // choices can also be PHP objects that implement __toString() method
+                ['all (default)', 'minor', 'patch', 'none'],
+                0
+            );
 
-			$output->writeln('<info>Updating composer.json</info>');
-			if ($this->json->updateComposer($this->packages)) {
-				$output->writeln('<info>Composer.json updated.  You can now run «composer update</info>');
-				return Command::SUCCESS;
-			}
+            $question->setErrorMessage('Value %s is invalid.');
 
-			$output->writeln('<error>An error has occurred during composer.json update</error>');
+            $upgradeType = $helper->ask($input, $output, $question);
 
-			return Command::FAILURE;
-		}
+            $packagesToUpdate = $this->packages->filter(function(Package $package) use ($upgradeType) {
+                return match ($upgradeType) {
+                    'minor' => $package->isMinorUpdate() || $package->isPatchUpdate(),
+                    'patch' => $package->isPatchUpdate(),
+                    'none'  => false,
+                    default => true,
+                };
+            })->keyBy(fn(Package $package) => $package->getName());
+        } elseif ($input->getOption('update') !== false) {
+			$packagesToUpdate = $this->packages;
+		} else {
+            $output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 
-		$output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
+            return Command::SUCCESS;
+        }
 
-		return Command::SUCCESS;
+        $output->writeln(sprintf('<info>%d packages will be updated</info>', $packagesToUpdate->count()));
+
+        if ($packagesToUpdate->isEmpty()) {
+            return Command::SUCCESS;
+        }
+
+        if (!$this->json->isWritable()) {
+            $output->writeln('<error>Your composer.json is not writable</error>');
+            return Command::FAILURE;
+        }
+
+        $output->writeln('<info>Updating composer.json</info>');
+        if ($this->json->updateComposer($packagesToUpdate)) {
+            $output->writeln('<info>Composer.json updated.  You can now run «composer update»</info>');
+            return Command::SUCCESS;
+        }
+
+        $output->writeln('<error>An error has occurred during composer.json update</error>');
+
+        return Command::FAILURE;
 	}
 
     /**

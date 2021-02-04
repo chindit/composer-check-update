@@ -1,5 +1,7 @@
 # composer-check-update
 
+**NOTE**: This package require PHP 8.0 at least to run!
+
 _composer-check-update_ is a simple tool to see if some of your
 composer dependencies are outdated.
 
@@ -17,6 +19,10 @@ OR
 `./ccu.phar`
 
 ### Parameters
+##### Interactive mode
+Run command with `-i` flag to enable interactive mode.  This mode 
+allows you to choose to update all, major, minor or only patch dependencies.
+
 ##### Composer.json path
 If _composer.json_ is not located in the same directory, use `--composer /path/to/composer`
 or `-c /path/to/composer`.

@@ -50,9 +50,15 @@ class JsonService
      * @return bool
      * @throws \JsonException
      */
-	public function updateComposer(Collection $updates): bool
+	public function updateComposer(Collection $updates, string $level = 'all'): bool
 	{
-	    $packagesToUpdate = $updates->keyBy(fn(Package $package) => $package->getName());
+	    $packagesToUpdate = $updates->filter(function(Package $package) use ($level) {
+            return match ($level) {
+                'minor' => $package->isMinorUpdate() || $package->isPatchUpdate(),
+                'patch' => $package->isPatchUpdate(),
+                default => true,
+            };
+        })->keyBy(fn(Package $package) => $package->getName());
 
 		foreach ($this->json['require'] as $packageName => $version) {
 			if ($packagesToUpdate->has($packageName)) {
