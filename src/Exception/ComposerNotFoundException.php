@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Exceptions;
+namespace App\Exception;
 
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 

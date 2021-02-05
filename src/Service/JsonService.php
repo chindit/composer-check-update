@@ -2,11 +2,14 @@
 
 namespace App\Service;
 
-use App\Exceptions\ComposerNotFoundException;
-use App\Exceptions\InvalidComposerException;
+use App\Exception\ComposerNotFoundException;
+use App\Exception\InvalidComposerException;
+use App\Model\Package;
+use Chindit\Collection\Collection;
 
 class JsonService
 {
+    /** @var array<string, array<string, string> >  */
 	private array $json;
 	private string $composerPath;
 
@@ -21,14 +24,20 @@ class JsonService
 		$this->checkComposer();
 	}
 
-	public function getDependencies(): array
+    /**
+     * @return Collection<string, string>
+     */
+	public function getDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions($this->json['require']);
+		return $this->removePhpAndExtensions(new Collection($this->json['require']));
 	}
 
-	public function getDevDependencies(): array
+    /**
+     * @return Collection<string, string>
+     */
+	public function getDevDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions($this->json['require-dev'] ?? []);
+		return $this->removePhpAndExtensions(new Collection($this->json['require-dev'] ?? []));
 	}
 
 	public function isWritable(): bool
@@ -36,27 +45,35 @@ class JsonService
 		return is_writable($this->composerPath);
 	}
 
-	/**
-	 * @throws \JsonException
-	 */
-	public function updateComposer(array $updates): bool
+    /**
+     * @param Collection|Package[] $updates
+     * @return bool
+     * @throws \JsonException
+     */
+	public function updateComposer(Collection $updates, string $level = 'all'): bool
 	{
-		$packagesToUpdate = [];
-		foreach ($updates as $update) {
-			$packagesToUpdate[$update[0]] = $update[2];
-		}
-		$packagesNamesToUpdate = array_keys($packagesToUpdate);
+	    $packagesToUpdate = $updates->filter(function(Package $package) use ($level) {
+            return match ($level) {
+                'minor' => $package->isMinorUpdate() || $package->isPatchUpdate(),
+                'patch' => $package->isPatchUpdate(),
+                default => true,
+            };
+        })->keyBy(fn(Package $package) => $package->getName());
 
-		foreach ($this->json['require'] as $package => $version) {
-			if (in_array($package, $packagesNamesToUpdate, true)) {
-				$this->json['require'][$package] = $packagesToUpdate[$package];
+		foreach ($this->json['require'] as $packageName => $version) {
+			if ($packagesToUpdate->has($packageName)) {
+			    /** @var Package $package */
+			    $package = $packagesToUpdate->get($packageName);
+				$this->json['require'][$packageName] = $package->getNewVersionToString();
 			}
 		}
 
-		foreach ($this->json['require-dev'] as $package => $version) {
-			if (in_array($package, $packagesNamesToUpdate, true)) {
-				$this->json['require-dev'][$package] = $packagesToUpdate[$package];
-			}
+		foreach ($this->json['require-dev'] as $packageName => $version) {
+            if ($packagesToUpdate->has($packageName)) {
+                /** @var Package $package */
+                $package = $packagesToUpdate->get($packageName);
+                $this->json['require-dev'][$packageName] = $package->getNewVersionToString();
+            }
 		}
 
 		file_put_contents($this->composerPath, json_encode($this->json, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -69,7 +86,7 @@ class JsonService
 	 */
 	private function readComposer(): void
 	{
-		if (!strpos($this->composerPath, 'composer.json')) {
+		if (!str_ends_with($this->composerPath, 'composer.json')) {
 			$this->composerPath .= '/composer.json';
 		}
 
@@ -90,16 +107,16 @@ class JsonService
 		}
 	}
 
-	private function removePhpAndExtensions(array $dependencies): array
+    /**
+     * @param Collection<string, string> $dependencies
+     * @return Collection<string, string>
+     */
+	private function removePhpAndExtensions(Collection $dependencies): Collection
 	{
-		$keys = array_keys($dependencies);
-
-		foreach ($keys as $key) {
-			if ($key === 'php' || (stripos($key, 'ext-') === 0 && strpos($key, '/') === false)) {
-				unset($dependencies[$key]);
-			}
-		}
-
-		return $dependencies;
+	    return $dependencies->filter(function(string $version, string $packageName)
+        {
+            return $packageName !== 'php'
+                && !(str_starts_with($packageName, 'ext-') && !str_contains($packageName, '/'));
+        });
 	}
 }
