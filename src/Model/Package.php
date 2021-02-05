@@ -55,6 +55,12 @@ final class Package
 
     public function getNewVersionToString(): string
     {
+        if ($this->getActualVersion()->getMinor() === '*' && $this->getNewVersion()->getMinor()) {
+            return $this->modifier . implode('.', [$this->getNewVersion()->chunkTo(1), '*']);
+        } elseif ($this->getActualVersion()->getPatch() === '*' && $this->getNewVersion()->getMinor()) {
+            return $this->modifier . implode('.', [$this->getNewVersion()->chunkTo(2), '*']);
+        }
+
         return $this->modifier . $this->getNewVersion()->chunkTo($this->getActualVersion()->getSize());
     }
 
@@ -106,6 +112,7 @@ final class Package
     {
         return !$this->isMajorUpdate()
         && $this->getActualVersion()->getMinor()
+        && $this->getActualVersion()->getMinor() !== '*'
         && $this->getNewVersion()->getMinor()
         && $this->getActualVersion()->getMinor() < $this->getNewVersion()->getMinor();
     }
@@ -115,6 +122,7 @@ final class Package
         return !$this->isMajorUpdate()
             && !$this->isMinorUpdate()
             && $this->getActualVersion()->getPatch()
+            && $this->getActualVersion()->getPatch() !== '*'
             && $this->getNewVersion()->getPatch()
             && $this->getActualVersion()->getPatch() < $this->getNewVersion()->getPatch();
     }
