@@ -76,6 +76,18 @@ class JsonService
             }
 		}
 
+		// Special support for Symfony
+        /** @var Package|null $symfonyPackage */
+        $symfonyPackage = $packagesToUpdate->filter(fn(Package $package) => str_starts_with($package->getName(), 'symfony/'))->first();
+		if ($symfonyPackage && ($symfonyPackage->isMajorUpdate() || $symfonyPackage->isMinorUpdate())) {
+            if ($this->json['extra'] && $this->json['extra']['symfony'] && $this->json['extra']['symfony']['require']) {
+                $this->json['extra']['symfony']['require'] = implode(
+                    '.',
+                    [$symfonyPackage->getNewVersion()->getMajor(), $symfonyPackage->getNewVersion()->getMinor(), '*']
+                );
+            }
+        }
+
 		file_put_contents($this->composerPath, json_encode($this->json, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
 		return true;

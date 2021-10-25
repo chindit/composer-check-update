@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "fc7824215d31a824f99e5b4b6799a584",
+    "content-hash": "19feddcc05602ec0603b19804a020501",
     "packages": [
         {
             "name": "chindit/collection",
-            "version": "1.0.6",
+            "version": "1.0.7",
             "source": {
                 "type": "git",
                 "url": "https://github.com/chindit/collection.git",
-                "reference": "12b3c92238ebdae4bde9c7f31d2b496fd63461d9"
+                "reference": "0fd0c9a8dfb7f8b6587763a28f0837aee59febe6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/chindit/collection/zipball/12b3c92238ebdae4bde9c7f31d2b496fd63461d9",
-                "reference": "12b3c92238ebdae4bde9c7f31d2b496fd63461d9",
+                "url": "https://api.github.com/repos/chindit/collection/zipball/0fd0c9a8dfb7f8b6587763a28f0837aee59febe6",
+                "reference": "0fd0c9a8dfb7f8b6587763a28f0837aee59febe6",
                 "shasum": ""
             },
             "require": {
@@ -45,9 +45,9 @@
             "description": "Small array wrapper to ease array handling",
             "support": {
                 "issues": "https://github.com/chindit/collection/issues",
-                "source": "https://github.com/chindit/collection/tree/1.0.6"
+                "source": "https://github.com/chindit/collection/tree/1.0.7"
             },
-            "time": "2021-08-09T16:40:20+00:00"
+            "time": "2021-10-25T13:39:13+00:00"
         },
         {
             "name": "psr/container",

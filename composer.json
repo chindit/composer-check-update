@@ -1,7 +1,7 @@
 {
     "name": "chindit/composer-check-update",
     "description": "CLI tool to view/update Composer dependencies",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "type": "project",
     "require": {
         "php": "^8.0",
