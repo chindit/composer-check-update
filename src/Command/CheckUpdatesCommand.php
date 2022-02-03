@@ -114,7 +114,6 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<info>All packages are up to date</info>');
 		}
 
-        $packagesToUpdate = new Collection();
         if ($input->getOption('interactive') !== false) {
             $helper = $this->getHelper('question');
             $question = new ChoiceQuestion(

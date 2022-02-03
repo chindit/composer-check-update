@@ -18,6 +18,9 @@ final class Version implements \Stringable
         $version = trim($version);
         $this->version = preg_replace('/[^0-9\.]/', '', $version) ?? '';
         $this->chunks = explode('.', $this->version);
+		if (empty($this->version)) {
+			$this->version = $version;
+		}
     }
 
     public function getMajor(): string
