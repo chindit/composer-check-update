@@ -61,6 +61,10 @@ final class Package
             return $this->modifier . implode('.', [$this->getNewVersion()->chunkTo(2), '*']);
         }
 
+        // Handle non-numeric versions
+        if (!is_numeric($this->getActualVersion()->getMajor())) {
+            return '^' . $this->getNewVersion()->chunkTo(2); // By default, we replace by ^x.y
+        }
         return $this->modifier . $this->getNewVersion()->chunkTo($this->getActualVersion()->getSize());
     }
 
@@ -105,7 +109,7 @@ final class Package
          * Special SemVer case: if major is 0, all changes must be considered as major
          */
         return $this->getActualVersion()->getMajor() < $this->getNewVersion()->getMajor()
-            || $this->getActualVersion()->getMajor() === 0;
+            || (int)$this->getActualVersion()->getMajor() === 0;
     }
 
     public function isMinorUpdate(): bool
