@@ -80,7 +80,7 @@ class JsonService
         /** @var Package|null $symfonyPackage */
         $symfonyPackage = $packagesToUpdate->filter(fn(Package $package) => str_starts_with($package->getName(), 'symfony/'))->first();
 		if ($symfonyPackage && ($symfonyPackage->isMajorUpdate() || $symfonyPackage->isMinorUpdate())) {
-            if ($this->json['extra'] && $this->json['extra']['symfony'] && $this->json['extra']['symfony']['require']) {
+            if (isset($this->json['extra']) && $this->json['extra']['symfony'] && $this->json['extra']['symfony']['require']) {
                 $this->json['extra']['symfony']['require'] = implode(
                     '.',
                     [$symfonyPackage->getNewVersion()->getMajor(), $symfonyPackage->getNewVersion()->getMinor(), '*']
