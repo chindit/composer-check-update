@@ -11,6 +11,7 @@ use App\Service\PackagistService;
 use Chindit\Collection\Collection;
 use Exception;
 use JsonException;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -20,10 +21,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\HttpClient\HttpClient;
 
+#[AsCommand(name:'app:check-updates')]
 class CheckUpdatesCommand extends Command
 {
-	public static $defaultName = 'app:check-updates';
-
 	private JsonService $json;
 	private PackagistService $packagistService;
 	/** @var Collection<int, Package> */
