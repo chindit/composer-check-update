@@ -31,7 +31,7 @@ class CheckUpdatesCommand extends Command
 	/** @var array<int, string> */
 	private array $errors = [];
 
-	public function __construct(string $name = null)
+	public function __construct(?string $name = null)
 	{
 		parent::__construct($name);
 
