@@ -19,7 +19,7 @@ class PackagistService
 	{
 		try
 		{
-			$request = $this->httpClient->request('GET', sprintf('https://repo.packagist.org/p/%s.json', $dependency));
+			$request = $this->httpClient->request('GET', sprintf('https://repo.packagist.org/p2/%s.json', $dependency));
 
 			if ($request->getStatusCode() >= 400) {
 				throw new InvalidPackageException(sprintf('«%s» is not a valid composer package', $dependency));
@@ -44,19 +44,7 @@ class PackagistService
      */
 	private function getLastVersionFromResponse(array $package): string
 	{
-		$versions = preg_grep('/^v?[0-9]+.[0-9]+(.[0-9]+)?(.[0-9]+)?$/', array_keys($package));
-		if ($versions === false) {
-            throw new InvalidPackageException('Package version is not understandable');
-        }
-		$versions = preg_replace('/[^0-9\.]/', '', $versions);
-
-		if (empty($versions)) {
-			return '';
-		}
-
-		rsort($versions, SORT_NATURAL);
-
-		return $versions[0];
+		return implode('.', array_slice(explode('.', $package[0]['version_normalized']), 0, 3));
 	}
 
 	public function needsUpdate(string $lastVersion, string $composerVersion): string
