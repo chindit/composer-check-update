@@ -32,19 +32,42 @@ class PackagistService
 				throw new InvalidPackageException(sprintf('«%s» is not a valid composer package', $dependency));
 			}
 
-			return $this->getLastVersionFromResponse($response['packages'][$dependency]);
+			$packageData = $response['packages'][$dependency];
+            if (!is_array($packageData)) {
+                throw new InvalidPackageException('Invalid package data from Packagist');
+            }
+
+            /** @var array<int, array<string, string>> $normalizedPackageData */
+            $normalizedPackageData = [];
+            foreach ($packageData as $key => $val) {
+                if (is_int($key) && is_array($val)) {
+                    $item = [];
+                    foreach ($val as $k => $v) {
+                        if (is_string($k) && is_string($v)) {
+                            $item[$k] = $v;
+                        }
+                    }
+                    $normalizedPackageData[$key] = $item;
+                }
+            }
+
+			return $this->getLastVersionFromResponse($normalizedPackageData);
 		} catch (TransportExceptionInterface $exception) {
 			throw new InvalidPackageException($exception->getMessage());
 		}
 	}
 
     /**
-     * @param array<string, array> $package
+     * @param array<int, array<string, string>> $package
      * @return string
      * @throws InvalidPackageException
      */
 	private function getLastVersionFromResponse(array $package): string
 	{
+        if (!isset($package[0]['version_normalized'])) {
+            throw new InvalidPackageException('Invalid package data from Packagist');
+        }
+
 		return implode('.', array_slice(explode('.', $package[0]['version_normalized']), 0, 3));
 	}
 
@@ -89,7 +112,8 @@ class PackagistService
 			$nbChunksNewVersion = substr_count($lastVersion, '.');
 
 			if ($nbChunksBeforeStar === $nbChunksNewVersion) {
-				$lastVersion = substr($lastVersion, 0, strrpos($lastVersion, '.')) . '.*';
+                $lastDot = strrpos($lastVersion, '.');
+				$lastVersion = ($lastDot !== false ? substr($lastVersion, 0, $lastDot) : $lastVersion) . '.*';
 			} else {
 				$chunks = explode('.', $lastVersion);
 				$chunks = array_slice($chunks, 0, $nbChunksBeforeStar);

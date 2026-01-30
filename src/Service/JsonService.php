@@ -9,7 +9,7 @@ use Chindit\Collection\Collection;
 
 class JsonService
 {
-    /** @var array<string, array<string, string> >  */
+    /** @var array<string, mixed>  */
 	private array $json;
 	private string $composerPath;
 
@@ -29,7 +29,13 @@ class JsonService
      */
 	public function getDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions(new Collection($this->json['require']));
+        $data = $this->json['require'] ?? [];
+        if (!is_array($data)) {
+            $data = [];
+        }
+        /** @var Collection<string, string> $collection */
+        $collection = new Collection($data);
+		return $this->removePhpAndExtensions($collection);
 	}
 
     /**
@@ -37,7 +43,13 @@ class JsonService
      */
 	public function getDevDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions(new Collection($this->json['require-dev'] ?? []));
+        $data = $this->json['require-dev'] ?? [];
+        if (!is_array($data)) {
+            $data = [];
+        }
+        /** @var Collection<string, string> $collection */
+        $collection = new Collection($data);
+		return $this->removePhpAndExtensions($collection);
 	}
 
 	public function isWritable(): bool
@@ -60,31 +72,45 @@ class JsonService
             };
         })->keyBy(fn(Package $package) => $package->getName());
 
-		foreach ($this->json['require'] as $packageName => $version) {
-			if ($packagesToUpdate->has($packageName)) {
-			    /** @var Package $package */
-			    $package = $packagesToUpdate->get($packageName);
-				$this->json['require'][$packageName] = $package->getNewVersionToString();
-			}
-		}
-
-		foreach ($this->json['require-dev'] as $packageName => $version) {
-            if ($packagesToUpdate->has($packageName)) {
-                /** @var Package $package */
-                $package = $packagesToUpdate->get($packageName);
-                $this->json['require-dev'][$packageName] = $package->getNewVersionToString();
+        $require = $this->json['require'] ?? [];
+        if (is_array($require)) {
+            foreach ($require as $packageName => $version) {
+                if (is_string($packageName) && $packagesToUpdate->has($packageName)) {
+                    /** @var Package $package */
+                    $package = $packagesToUpdate->get($packageName);
+                    $require[$packageName] = $package->getNewVersionToString();
+                }
             }
-		}
+            $this->json['require'] = $require;
+        }
+
+        $requireDev = $this->json['require-dev'] ?? [];
+        if (is_array($requireDev)) {
+            foreach ($requireDev as $packageName => $version) {
+                if (is_string($packageName) && $packagesToUpdate->has($packageName)) {
+                    /** @var Package $package */
+                    $package = $packagesToUpdate->get($packageName);
+                    $requireDev[$packageName] = $package->getNewVersionToString();
+                }
+            }
+            $this->json['require-dev'] = $requireDev;
+        }
 
 		// Special support for Symfony
         /** @var Package|null $symfonyPackage */
-        $symfonyPackage = $packagesToUpdate->filter(fn(Package $package) => str_starts_with($package->getName(), 'symfony/'))->first();
+        $symfonyPackage = $updates->filter(fn(Package $package) => str_starts_with($package->getName(), 'symfony/'))->first();
 		if ($symfonyPackage && ($symfonyPackage->isMajorUpdate() || $symfonyPackage->isMinorUpdate())) {
-            if (isset($this->json['extra']) && $this->json['extra']['symfony'] && $this->json['extra']['symfony']['require']) {
-                $this->json['extra']['symfony']['require'] = implode(
-                    '.',
-                    [$symfonyPackage->getNewVersion()->getMajor(), $symfonyPackage->getNewVersion()->getMinor(), '*']
-                );
+            $extra = $this->json['extra'] ?? null;
+            if (is_array($extra) && isset($extra['symfony']) && is_array($extra['symfony'])) {
+                $symfonyExtra = $extra['symfony'];
+                if (isset($symfonyExtra['require'])) {
+                    $symfonyExtra['require'] = implode(
+                        '.',
+                        [$symfonyPackage->getNewVersion()->getMajor(), $symfonyPackage->getNewVersion()->getMinor(), '*']
+                    );
+                    $extra['symfony'] = $symfonyExtra;
+                    $this->json['extra'] = $extra;
+                }
             }
         }
 
@@ -106,7 +132,18 @@ class JsonService
 			throw new ComposerNotFoundException($this->composerPath);
 		}
 
-		$this->json = json_decode(file_get_contents($this->composerPath), true, 5,JSON_THROW_ON_ERROR);
+        $content = file_get_contents($this->composerPath);
+        if ($content === false) {
+            throw new ComposerNotFoundException($this->composerPath);
+        }
+
+        $json = json_decode($content, true, 5,JSON_THROW_ON_ERROR);
+        if (!is_array($json)) {
+            throw new \JsonException('Invalid composer.json content: expected array');
+        }
+
+        /** @var array<string, mixed> $json */
+		$this->json = $json;
 	}
 
 	/**
@@ -125,10 +162,13 @@ class JsonService
      */
 	private function removePhpAndExtensions(Collection $dependencies): Collection
 	{
-	    return $dependencies->filter(function(string $version, string $packageName)
+	    /** @var Collection<string, string> $filtered */
+	    $filtered = $dependencies->filter(function(string $version, string $packageName)
         {
             return $packageName !== 'php'
                 && !(str_starts_with($packageName, 'ext-') && !str_contains($packageName, '/'));
         });
+
+        return $filtered;
 	}
 }

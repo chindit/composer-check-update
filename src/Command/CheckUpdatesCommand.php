@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Exception\ComposerNotFoundException;
 use App\Exception\InvalidComposerException;
 use App\Model\Package;
 use App\Service\JsonService;
@@ -15,6 +14,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -34,7 +34,9 @@ class CheckUpdatesCommand extends Command
 	{
 		parent::__construct($name);
 
-		$this->packages = new Collection();
+		$packages = new Collection();
+        /** @var Collection<int, Package> $packages */
+		$this->packages = $packages;
 		$this->packagistService = $packagistService;
 	}
 
@@ -52,12 +54,11 @@ class CheckUpdatesCommand extends Command
 	{
 		// 1) Create JsonService
 		try {
-			$this->json = new JsonService($input->getOption('composer'));
-		} catch (ComposerNotFoundException $exception) {
-			$output->writeln('<error>Unable to find a composer.json file in «' . $exception->getComposerSearchPath() . '»</error>');
-			$output->writeln('<comment>Try using «-c /path/to/my/project» to specify correct location to your composer.json file</comment>');
-
-			return Command::FAILURE;
+            $composerPath = $input->getOption('composer');
+            if (!is_string($composerPath)) {
+                $composerPath = '.';
+            }
+			$this->json = new JsonService($composerPath);
 		} catch (InvalidComposerException $exception) {
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
 
@@ -114,6 +115,7 @@ class CheckUpdatesCommand extends Command
 		}
 
         if ($input->getOption('interactive') !== false) {
+            /** @var QuestionHelper $helper */
             $helper = $this->getHelper('question');
             $question = new ChoiceQuestion(
                 'Do you want to update all packages, minors and patch, patch only or mothing ?',

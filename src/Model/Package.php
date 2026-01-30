@@ -16,7 +16,6 @@ final class Package
     private ?Version $lowerBound = null;
     private ?Version $upperBound = null;
     private string $modifier = '';
-    private string $boundary = '';
     private const MAJOR_COLOR = 'red';
     private const MINOR_COLOR = 'blue';
     private const PATCH_COLOR = 'green';
@@ -151,12 +150,18 @@ final class Package
             }
 
             // If more than two versions, we ignore the third one
-            $this->lowerBound = new Version($versionRange->first());
-            $this->upperBound = new Version($versionRange->get(1));
-
-            $this->boundary = str_contains($version, '|') ? ' | ' : ' - ';
+            $lower = $versionRange->first();
+            $upper = $versionRange->get(1);
+            if (is_string($lower) && is_string($upper)) {
+                $this->lowerBound = new Version($lower);
+                $this->upperBound = new Version($upper);
+            }
 
             $version = $versionRange->get(1);
+        }
+
+        if (!is_string($version)) {
+            $version = '';
         }
 
         // If first char is a digit, there is no modifier
