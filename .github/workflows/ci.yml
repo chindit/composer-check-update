@@ -16,7 +16,7 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.5'
+        php-version: '8.4'
         extensions: mbstring, xml, ctype, iconv, intl, json
         coverage: none
 
@@ -27,4 +27,4 @@ jobs:
       run: vendor/bin/phpstan analyse src --level=9
 
     - name: Run Pest
-      run: vendor/bin/pest
+      run: vendor/bin/pest --no-extensions
