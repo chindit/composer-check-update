@@ -27,4 +27,4 @@ jobs:
       run: vendor/bin/phpstan analyse src --level=9
 
     - name: Run Pest
-      run: vendor/bin/pest --no-extensions
+      run: vendor/bin/pest
