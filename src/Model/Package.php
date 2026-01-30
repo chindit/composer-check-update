@@ -6,6 +6,7 @@ namespace App\Model;
 
 
 use Chindit\Collection\Collection;
+use Composer\Semver\Comparator;
 
 final class Package
 {
@@ -30,7 +31,8 @@ final class Package
 
     public function isUpdatable(): bool
     {
-        return $this->packagistVersion->isGreaterThan($this->composerVersion);
+        return $this->packagistVersion->isGreaterThan($this->composerVersion)
+            && $this->getActualVersionToString() !== $this->getNewVersionToString();
     }
 
     public function getName(): string
@@ -63,7 +65,10 @@ final class Package
 
         // Handle non-numeric versions
         if (!is_numeric($this->getActualVersion()->getMajor())) {
-            return '^' . $this->getNewVersion()->chunkTo(2); // By default, we replace by ^x.y
+            if (is_numeric($this->getNewVersion()->getMajor())) {
+                return '^' . $this->getNewVersion()->chunkTo(2);
+            }
+            return $this->getNewVersion()->getVersion();
         }
         return $this->modifier . $this->getNewVersion()->chunkTo($this->getActualVersion()->getSize());
     }
@@ -108,27 +113,27 @@ final class Package
         /**
          * Special SemVer case: if major is 0, all changes must be considered as major
          */
-        return $this->getActualVersion()->getMajor() < $this->getNewVersion()->getMajor()
+        return Comparator::greaterThan($this->getNewVersion()->getMajor(), $this->getActualVersion()->getMajor())
             || (int)$this->getActualVersion()->getMajor() === 0;
     }
 
     public function isMinorUpdate(): bool
     {
         return !$this->isMajorUpdate()
-        && $this->getActualVersion()->getMinor()
+        && $this->getActualVersion()->getMinor() !== ''
         && $this->getActualVersion()->getMinor() !== '*'
-        && $this->getNewVersion()->getMinor()
-        && $this->getActualVersion()->getMinor() < $this->getNewVersion()->getMinor();
+        && $this->getNewVersion()->getMinor() !== ''
+        && Comparator::greaterThan($this->getNewVersion()->getMinor(), $this->getActualVersion()->getMinor());
     }
 
     public function isPatchUpdate(): bool
     {
         return !$this->isMajorUpdate()
             && !$this->isMinorUpdate()
-            && $this->getActualVersion()->getPatch()
+            && $this->getActualVersion()->getPatch() !== ''
             && $this->getActualVersion()->getPatch() !== '*'
-            && $this->getNewVersion()->getPatch()
-            && $this->getActualVersion()->getPatch() < $this->getNewVersion()->getPatch();
+            && $this->getNewVersion()->getPatch() !== ''
+            && Comparator::greaterThan($this->getNewVersion()->getPatch(), $this->getActualVersion()->getPatch());
     }
 
     /**

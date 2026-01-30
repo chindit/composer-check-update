@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Exception\InvalidPackageException;
+use Composer\Semver\Comparator;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -64,13 +65,7 @@ class PackagistService
 			$lastVersion = implode('.', array_slice($lastVersionChunks, 0, $chunksNumber));
 		}
 
-		/**
-		 * Output for version_compare is
-		 * -1 if $lastVersion is OLDER (smaller) THAN $composerVersionCleaned
-		 * 0 if $lastVersion is EQUAL TO $composerVersionCleaned
-		 * 1 if $lastVersion is NEWER (greater) THAN $composerVersionCleaned
-		 */
-		if (version_compare($lastVersion, $composerVersionCleaned) === 1) {
+		if (Comparator::greaterThan($lastVersion, $composerVersionCleaned)) {
             return $this->findVersionPattern($composerVersion, $lastVersion);
 		}
 

@@ -19,7 +19,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
-use Symfony\Component\HttpClient\HttpClient;
 
 #[AsCommand(name:'app:check-updates')]
 class CheckUpdatesCommand extends Command
@@ -31,12 +30,12 @@ class CheckUpdatesCommand extends Command
 	/** @var array<int, string> */
 	private array $errors = [];
 
-	public function __construct(?string $name = null)
+	public function __construct(PackagistService $packagistService, ?string $name = null)
 	{
 		parent::__construct($name);
 
 		$this->packages = new Collection();
-		$this->packagistService = new PackagistService(HttpClient::create());
+		$this->packagistService = $packagistService;
 	}
 
 	protected function configure(): void
@@ -44,7 +43,7 @@ class CheckUpdatesCommand extends Command
 		parent::configure();
 
 		$this->addOption('composer', '-c', InputOption::VALUE_OPTIONAL, 'The directory where your composer.json is located', getcwd());
-		$this->addOption('no-dev', null, InputOption::VALUE_OPTIONAL, 'Ignore require-dev section', false);
+		$this->addOption('no-dev', null, InputOption::VALUE_NONE, 'Ignore require-dev section');
 		$this->addOption('update', '-u', InputOption::VALUE_OPTIONAL, 'Update composer.json file', false);
 		$this->addOption('interactive', '-i', InputOption::VALUE_OPTIONAL, 'Set mode to interactive', false);
 	}
@@ -75,7 +74,7 @@ class CheckUpdatesCommand extends Command
 		$this->scanDependencies($output, $dependencies);
 
 		// 3) Get dev dependencies
-		if ($input->getOption('no-dev') !== null)
+		if (!$input->getOption('no-dev'))
 		{
 			$devDependencies = $this->json->getDevDependencies();
 			$output->writeln(sprintf('<info>Found %s packages in «require-dev» section.  Scanning…</info>', $devDependencies->count()));
@@ -136,7 +135,7 @@ class CheckUpdatesCommand extends Command
                 };
             })->keyBy(fn(Package $package) => $package->getName());
         } elseif ($input->getOption('update') !== false) {
-			$packagesToUpdate = $this->packages;
+			$packagesToUpdate = $this->packages->filter(fn(Package $package) => $package->isUpdatable());
 		} else {
             $output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 

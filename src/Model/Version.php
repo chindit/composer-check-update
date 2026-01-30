@@ -5,6 +5,7 @@ namespace App\Model;
 
 
 use Chindit\Collection\Collection;
+use Composer\Semver\Comparator;
 
 final class Version implements \Stringable
 {
@@ -16,26 +17,26 @@ final class Version implements \Stringable
     public function __construct(string $version)
     {
         $version = trim($version);
-        $this->version = preg_replace('/[^0-9\.]/', '', $version) ?? '';
-        $this->chunks = explode('.', $this->version);
+        $this->version = preg_replace('/[^0-9\.\*]/', '', $version) ?? '';
 		if (empty($this->version)) {
 			$this->version = $version;
 		}
+        $this->chunks = explode('.', $this->version);
     }
 
     public function getMajor(): string
     {
-        return $this->chunks[0] ?? '';
+        return (string)($this->chunks[0] ?? '');
     }
 
     public function getMinor(): string
     {
-        return $this->chunks[1] ?? '';
+        return (string)($this->chunks[1] ?? '');
     }
 
     public function getPatch(): string
     {
-        return $this->chunks[2] ?? '';
+        return (string)($this->chunks[2] ?? '');
     }
 
     public function getVersion(): string
@@ -45,9 +46,7 @@ final class Version implements \Stringable
 
     public function isGreaterThan(Version $version): bool
     {
-        return $this->getMajor() > $version->getMajor()
-            || ($this->getMinor() && $version->getMinor() && $this->getMinor() > $version->getMinor())
-            || ($this->getPatch() && $version->getPatch() && $this->getPatch() > $version->getPatch());
+        return Comparator::greaterThan($this->version, $version->getVersion());
     }
 
     public function __toString(): string
@@ -64,7 +63,7 @@ final class Version implements \Stringable
     {
         return $this->modifier . match($size) {
             1 => $this->getMajor(),
-            2 => implode('.', [$this->getMajor(), $this->getMinor()]),
+            2 => implode('.', array_filter([$this->getMajor(), $this->getMinor()], fn($s) => $s !== '')),
             default => $this->getVersion()
             };
     }
