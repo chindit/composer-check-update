@@ -19,7 +19,7 @@ class PackagistService
 	{
 		try
 		{
-			$request = $this->httpClient->request('GET', sprintf('https://repo.packagist.org/p/%s.json', $dependency));
+			$request = $this->httpClient->request('GET', sprintf('https://repo.packagist.org/p2/%s.json', $dependency));
 
 			if ($request->getStatusCode() >= 400) {
 				throw new InvalidPackageException(sprintf('«%s» is not a valid composer package', $dependency));
@@ -44,19 +44,35 @@ class PackagistService
      */
 	private function getLastVersionFromResponse(array $package): string
 	{
-		$versions = preg_grep('/^v?[0-9]+.[0-9]+(.[0-9]+)?(.[0-9]+)?$/', array_keys($package));
-		if ($versions === false) {
-            throw new InvalidPackageException('Package version is not understandable');
-        }
-		$versions = preg_replace('/[^0-9\.]/', '', $versions);
+        // API v2 returns an array of version objects
+        // Format: [{"version": "1.0.0", ...}, {"version": "1.1.0", ...}]
+        $versions = array_map(function($v) {
+            return is_array($v) ? ($v['version'] ?? '') : (string)$v;
+        }, $package);
+		
+		// Filter out development branches (dev-*) and keep only version-like strings
+		$versions = array_filter($versions, function(string $version) {
+			// Must not be a dev branch
+			if (str_starts_with($version, 'dev-')) {
+				return false;
+			}
+			// Must contain at least one digit
+			return preg_match('/\d/', $version) === 1;
+		});
 
 		if (empty($versions)) {
 			return '';
 		}
 
-		rsort($versions, SORT_NATURAL);
+		// Sort versions using natural comparison and version_compare logic
+		usort($versions, function($a, $b) {
+            $a = str_starts_with($a, 'v') && strlen($a) > 1 && is_numeric($a[1]) ? substr($a, 1) : $a;
+            $b = str_starts_with($b, 'v') && strlen($b) > 1 && is_numeric($b[1]) ? substr($b, 1) : $b;
 
-		return $versions[0];
+			return version_compare((string)$b, (string)$a);
+		});
+
+		return (string)$versions[0];
 	}
 
 	public function needsUpdate(string $lastVersion, string $composerVersion): string

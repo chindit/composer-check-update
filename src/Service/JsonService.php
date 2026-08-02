@@ -29,7 +29,7 @@ class JsonService
      */
 	public function getDependencies(): Collection
 	{
-		return $this->removePhpAndExtensions(new Collection($this->json['require']));
+		return $this->removePhpAndExtensions(new Collection($this->json['require'] ?? []));
 	}
 
     /**
@@ -60,7 +60,7 @@ class JsonService
             };
         })->keyBy(fn(Package $package) => $package->getName());
 
-		foreach ($this->json['require'] as $packageName => $version) {
+		foreach ($this->json['require'] ?? [] as $packageName => $version) {
 			if ($packagesToUpdate->has($packageName)) {
 			    /** @var Package $package */
 			    $package = $packagesToUpdate->get($packageName);
@@ -68,7 +68,7 @@ class JsonService
 			}
 		}
 
-		foreach ($this->json['require-dev'] as $packageName => $version) {
+		foreach ($this->json['require-dev'] ?? [] as $packageName => $version) {
             if ($packagesToUpdate->has($packageName)) {
                 /** @var Package $package */
                 $package = $packagesToUpdate->get($packageName);
@@ -80,7 +80,7 @@ class JsonService
         /** @var Package|null $symfonyPackage */
         $symfonyPackage = $packagesToUpdate->filter(fn(Package $package) => str_starts_with($package->getName(), 'symfony/'))->first();
 		if ($symfonyPackage && ($symfonyPackage->isMajorUpdate() || $symfonyPackage->isMinorUpdate())) {
-            if (isset($this->json['extra']) && $this->json['extra']['symfony'] && $this->json['extra']['symfony']['require']) {
+            if (isset($this->json['extra']['symfony']['require'])) {
                 $this->json['extra']['symfony']['require'] = implode(
                     '.',
                     [$symfonyPackage->getNewVersion()->getMajor(), $symfonyPackage->getNewVersion()->getMinor(), '*']
@@ -106,7 +106,7 @@ class JsonService
 			throw new ComposerNotFoundException($this->composerPath);
 		}
 
-		$this->json = json_decode(file_get_contents($this->composerPath), true, 5,JSON_THROW_ON_ERROR);
+		$this->json = json_decode(file_get_contents($this->composerPath), true, 512,JSON_THROW_ON_ERROR);
 	}
 
 	/**

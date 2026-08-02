@@ -36,7 +36,11 @@ class CheckUpdatesCommand extends Command
 		parent::__construct($name);
 
 		$this->packages = new Collection();
-		$this->packagistService = new PackagistService(HttpClient::create());
+		$this->packagistService = new PackagistService(HttpClient::create([
+            'headers' => [
+                'User-Agent' => 'composer-check-update (https://github.com/chindit/composer-check-update)'
+            ]
+        ]));
 	}
 
 	protected function configure(): void
@@ -44,9 +48,12 @@ class CheckUpdatesCommand extends Command
 		parent::configure();
 
 		$this->addOption('composer', '-c', InputOption::VALUE_OPTIONAL, 'The directory where your composer.json is located', getcwd());
-		$this->addOption('no-dev', null, InputOption::VALUE_OPTIONAL, 'Ignore require-dev section', false);
-		$this->addOption('update', '-u', InputOption::VALUE_OPTIONAL, 'Update composer.json file', false);
-		$this->addOption('interactive', '-i', InputOption::VALUE_OPTIONAL, 'Set mode to interactive', false);
+		$this->addOption('no-dev', null, InputOption::VALUE_NONE, 'Ignore require-dev section');
+		$this->addOption('update', '-u', InputOption::VALUE_NONE, 'Update composer.json file');
+		$this->addOption('interactive', '-i', InputOption::VALUE_NONE, 'Set mode to interactive');
+		$this->addOption('level', '-L', InputOption::VALUE_OPTIONAL, 'The level of update (all, minor, patch)', 'all');
+		$this->addOption('with-all-dependencies', '-W', InputOption::VALUE_NONE, 'Suggest running composer update with -W');
+		$this->addOption('exclude', null, InputOption::VALUE_IS_ARRAY | InputOption::VALUE_OPTIONAL, 'Exclude packages from update');
 	}
 
 	protected function execute(InputInterface $input, OutputInterface $output): int
@@ -75,7 +82,7 @@ class CheckUpdatesCommand extends Command
 		$this->scanDependencies($output, $dependencies);
 
 		// 3) Get dev dependencies
-		if ($input->getOption('no-dev') !== null)
+		if (!$input->getOption('no-dev'))
 		{
 			$devDependencies = $this->json->getDevDependencies();
 			$output->writeln(sprintf('<info>Found %s packages in «require-dev» section.  Scanning…</info>', $devDependencies->count()));
@@ -114,7 +121,9 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<info>All packages are up to date</info>');
 		}
 
-        if ($input->getOption('interactive') !== false) {
+        $upgradeType = $input->getOption('level');
+
+        if ($input->getOption('interactive')) {
             $helper = $this->getHelper('question');
             $question = new ChoiceQuestion(
                 'Do you want to update all packages, minors and patch, patch only or mothing ?',
@@ -126,8 +135,20 @@ class CheckUpdatesCommand extends Command
             $question->setErrorMessage('Value %s is invalid.');
 
             $upgradeType = $helper->ask($input, $output, $question);
+            $upgradeType = match ($upgradeType) {
+                'all (default)' => 'all',
+                default => $upgradeType,
+            };
+        }
 
-            $packagesToUpdate = $this->packages->filter(function(Package $package) use ($upgradeType) {
+        if ($input->getOption('interactive') || $input->getOption('update')) {
+            $exclude = $input->getOption('exclude');
+
+            $packagesToUpdate = $this->packages->filter(function(Package $package) use ($upgradeType, $exclude) {
+                if (in_array($package->getName(), $exclude, true)) {
+                    return false;
+                }
+
                 return match ($upgradeType) {
                     'minor' => $package->isMinorUpdate() || $package->isPatchUpdate(),
                     'patch' => $package->isPatchUpdate(),
@@ -135,9 +156,7 @@ class CheckUpdatesCommand extends Command
                     default => $package->isUpdatable(),
                 };
             })->keyBy(fn(Package $package) => $package->getName());
-        } elseif ($input->getOption('update') !== false) {
-			$packagesToUpdate = $this->packages;
-		} else {
+        } else {
             $output->writeln('<info>Tip: Re-run the command with «-u» to update your composer.json</info>');
 
             return Command::SUCCESS;
@@ -155,8 +174,12 @@ class CheckUpdatesCommand extends Command
         }
 
         $output->writeln('<info>Updating composer.json</info>');
-        if ($this->json->updateComposer($packagesToUpdate)) {
-            $output->writeln('<info>Composer.json updated.  You can now run «composer update»</info>');
+        if ($this->json->updateComposer($packagesToUpdate, $upgradeType)) {
+            $composerCommand = 'composer update';
+            if ($input->getOption('with-all-dependencies')) {
+                $composerCommand .= ' -W';
+            }
+            $output->writeln(sprintf('<info>Composer.json updated.  You can now run «%s»</info>', $composerCommand));
             return Command::SUCCESS;
         }
 

@@ -23,8 +23,8 @@ final class Package
     public function __construct(string $packageName = '', string $composerVersion = '', string $packagistVersion = '')
     {
         $this->packageName = $packageName;
-        $this->modifier = $this->findModifier($composerVersion);
-        $this->composerVersion = new Version($composerVersion);
+        $mainVersionString = $this->parseVersion($composerVersion);
+        $this->composerVersion = new Version($mainVersionString);
         $this->packagistVersion = new Version($packagistVersion);
     }
 
@@ -50,22 +50,71 @@ final class Package
 
     public function getActualVersionToString(): string
     {
-        return $this->modifier . $this->getActualVersion();
+        if ($this->hasLowerBound() && $this->hasUpperBound()) {
+            return $this->getLowerBound() . $this->boundary . $this->getUpperBound();
+        }
+        return (string)$this->getActualVersion();
     }
 
     public function getNewVersionToString(): string
     {
-        if ($this->getActualVersion()->getMinor() === '*' && $this->getNewVersion()->getMinor()) {
-            return $this->modifier . implode('.', [$this->getNewVersion()->chunkTo(1), '*']);
-        } elseif ($this->getActualVersion()->getPatch() === '*' && $this->getNewVersion()->getMinor()) {
-            return $this->modifier . implode('.', [$this->getNewVersion()->chunkTo(2), '*']);
+        if ($this->getActualVersion()->getVersion() === '*') {
+            return '*';
         }
 
-        // Handle non-numeric versions
-        if (!is_numeric($this->getActualVersion()->getMajor())) {
-            return '^' . $this->getNewVersion()->chunkTo(2); // By default, we replace by ^x.y
+        // Handle double version constraint
+        if ($this->hasLowerBound() && $this->hasUpperBound()) {
+            $newVersionPart = $this->formatNewVersionPart($this->getUpperBound(), $this->getNewVersion());
+            return $this->getLowerBound() . $this->boundary . $newVersionPart;
         }
-        return $this->modifier . $this->getNewVersion()->chunkTo($this->getActualVersion()->getSize());
+
+        $res = $this->formatNewVersionPart($this->getActualVersion(), $this->getNewVersion());
+
+        if (!empty($this->modifier) && !str_starts_with($res, $this->modifier)) {
+            $res = $this->modifier . $res;
+        }
+
+        return $res;
+    }
+
+    private function formatNewVersionPart(Version $actual, Version $new): string
+    {
+        $actualVersion = $actual->getVersion();
+        if (str_contains($actualVersion, '*')) {
+            if ($actualVersion === '*') {
+                $res = '*';
+            } else {
+                $nbDotsActual = substr_count($actualVersion, '.');
+                $newChunks = explode('.', $new->getVersion());
+                $res = implode('.', array_slice($newChunks, 0, $nbDotsActual)) . '.*';
+            }
+        } else {
+            $size = $actual->getSize();
+            if ($size === 0) {
+                $res = $new->getVersion();
+            } else {
+                $res = $new->chunkTo($size);
+            }
+        }
+
+        // Apply modifier from actual if missing in result
+        $actualModifier = $actual->getModifier();
+        if ($actualModifier && !str_starts_with($res, $actualModifier)) {
+            // Check if there is already a modifier in res
+            if (!preg_match('/^[~\^<>!=]+/', $res)) {
+                $res = $actualModifier . $res;
+            }
+        }
+
+        if ($actual->getStability() && !$new->getStability() && !str_contains($res, '@')) {
+            $res .= '@' . $actual->getStability();
+        }
+
+        if ($actual->getAlias() && !$new->getAlias() && !str_contains($res, ' as ')) {
+            $res = $actual->getVersion() . ' as ' . $res;
+        }
+
+        return $res;
     }
 
     /**
@@ -105,11 +154,18 @@ final class Package
 
     public function isMajorUpdate(): bool
     {
-        /**
-         * Special SemVer case: if major is 0, all changes must be considered as major
-         */
-        return $this->getActualVersion()->getMajor() < $this->getNewVersion()->getMajor()
-            || (int)$this->getActualVersion()->getMajor() === 0;
+        $actualV = $this->getActualVersion();
+        $newV = $this->getNewVersion();
+
+        if ($actualV->getMajor() !== $newV->getMajor()) {
+            return true;
+        }
+
+        if ($actualV->getMajor() === '0' && $actualV->getMinor() !== $newV->getMinor()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function isMinorUpdate(): bool
@@ -132,35 +188,59 @@ final class Package
     }
 
     /**
-     * Modifiers can be ~, ^, >= or < at the beginning
-     * In the middle, it can be | or - followed with a beginning modifier
+     * Parse version string and return the main version to be used for comparison
      */
-    private function findModifier(string $version): string
+    private function parseVersion(string $version): string
     {
-        // Version has multiple constrains
-        if (str_contains($version, '|') || str_contains($version, ' - ')) {
-            $versionRange = new Collection(str_contains($version, '|') ? explode('|', $version) : explode(' - ', $version));
-
-            if ($versionRange->count() < 2) {
-                throw new \InvalidArgumentException('Found less than two version while a boundary is present');
+        // Version has multiple constraints
+        if (str_contains($version, '|') || str_contains($version, ' - ') || str_contains($version, ' ') || str_contains($version, ',')) {
+            $separator = null;
+            if (str_contains($version, '||')) {
+                $separator = '||';
+            } elseif (str_contains($version, '|')) {
+                $separator = '|';
+            } elseif (str_contains($version, ' - ')) {
+                $separator = ' - ';
+            } elseif (str_contains($version, ',')) {
+                $separator = ',';
+            } elseif (preg_match('/\s+/', trim($version)) && !str_contains($version, ' as ')) {
+                $separator = ' ';
             }
 
-            // If more than two versions, we ignore the third one
-            $this->lowerBound = new Version($versionRange->first());
-            $this->upperBound = new Version($versionRange->get(1));
+            if ($separator !== null) {
+                $versionRange = new Collection(explode($separator, $version));
+                $versionRange = $versionRange->map(fn($v) => trim($v))->filter(fn($v) => !empty($v));
 
-            $this->boundary = str_contains($version, '|') ? ' | ' : ' - ';
+                if ($versionRange->count() >= 2) {
+                    $this->lowerBound = new Version($versionRange->first());
+                    $this->upperBound = new Version($versionRange->get($versionRange->count() - 1));
 
-            $version = $versionRange->get(1);
+                    $this->boundary = ($separator === ' ' || $separator === ' - ') ? $separator : ' ' . trim($separator) . ' ';
+                    if ($separator === ',') {
+                        $this->boundary = ', ';
+                    }
+
+                    $version = $versionRange->get($versionRange->count() - 1);
+                }
+            }
         }
 
-        // If first char is a digit, there is no modifier
-        if (empty($version) || ctype_alnum($version[0])) {
+        $this->modifier = $this->extractModifier($version);
+
+        return $version;
+    }
+
+    private function extractModifier(string $version): string
+    {
+        $trimmedVersion = trim($version);
+        if (empty($trimmedVersion)) {
             return '';
         }
         $matches = [];
-        preg_match('/^(.+?)(?=\d).*/', $version, $matches);
+        if (preg_match('/^([~\^<>!=]+)/', $trimmedVersion, $matches)) {
+            return $matches[1];
+        }
 
-        return empty($matches) ? '' : end($matches);
+        return '';
     }
 }

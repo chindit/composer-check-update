@@ -27,6 +27,18 @@ allows you to choose to update all, major, minor or only patch dependencies.
 If _composer.json_ is not located in the same directory, use `--composer /path/to/composer`
 or `-c /path/to/composer`.
 
+##### Update level
+By default, all updates are proposed. You can limit the update level using `--level` or `-L` flag (values: `all`, `minor`, `patch`).
+Example: `./ccu.phar -u -L minor` will only update minor and patch versions in your `composer.json`.
+
+##### Exclude packages
+You can exclude specific packages from being updated using the `--exclude` option. This option can be used multiple times.
+Example: `./ccu.phar -u --exclude symfony/console --exclude symfony/finder`
+
+##### With all dependencies
+If you want the tool to suggest running `composer update -W` (with all dependencies) after updating `composer.json`, use the `--with-all-dependencies` or `-W` flag.
+Example: `./ccu.phar -u -W`
+
 ##### Ignore «require-dev» section
 Add `--no-dev` flag
 
