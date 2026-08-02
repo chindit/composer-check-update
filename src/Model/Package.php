@@ -6,6 +6,7 @@ namespace App\Model;
 
 
 use Chindit\Collection\Collection;
+use Composer\Semver\Comparator;
 
 final class Package
 {
@@ -30,7 +31,8 @@ final class Package
 
     public function isUpdatable(): bool
     {
-        return $this->packagistVersion->isGreaterThan($this->composerVersion);
+        return $this->packagistVersion->isGreaterThan($this->composerVersion)
+            && $this->getActualVersionToString() !== $this->getNewVersionToString();
     }
 
     public function getName(): string
@@ -63,9 +65,19 @@ final class Package
         }
 
         // Handle double version constraint
-        if ($this->hasLowerBound() && $this->hasUpperBound()) {
-            $newVersionPart = $this->formatNewVersionPart($this->getUpperBound(), $this->getNewVersion());
-            return $this->getLowerBound() . $this->boundary . $newVersionPart;
+        $lowerBound = $this->getLowerBound();
+        $upperBound = $this->getUpperBound();
+        if ($lowerBound !== null && $upperBound !== null) {
+            $newVersionPart = $this->formatNewVersionPart($upperBound, $this->getNewVersion());
+            return $lowerBound . $this->boundary . $newVersionPart;
+        }
+
+        // Handle non-numeric versions
+        if (!is_numeric($this->getActualVersion()->getMajor())) {
+            if (is_numeric($this->getNewVersion()->getMajor())) {
+                return '^' . $this->getNewVersion()->chunkTo(2);
+            }
+            return $this->getNewVersion()->getVersion();
         }
 
         $res = $this->formatNewVersionPart($this->getActualVersion(), $this->getNewVersion());
@@ -157,34 +169,38 @@ final class Package
         $actualV = $this->getActualVersion();
         $newV = $this->getNewVersion();
 
+        if (!is_numeric($actualV->getMajor())) {
+            return $actualV->getVersion() !== $newV->getVersion();
+        }
+
         if ($actualV->getMajor() !== $newV->getMajor()) {
-            return true;
+            return Comparator::greaterThan($newV->getMajor(), $actualV->getMajor());
         }
 
-        if ($actualV->getMajor() === '0' && $actualV->getMinor() !== $newV->getMinor()) {
-            return true;
-        }
-
-        return false;
+        /**
+         * Special SemVer case: if major is 0, all changes must be considered as major
+         */
+        return $actualV->getMajor() === '0'
+            && $actualV->getVersion() !== $newV->getVersion();
     }
 
     public function isMinorUpdate(): bool
     {
         return !$this->isMajorUpdate()
-        && $this->getActualVersion()->getMinor()
+        && $this->getActualVersion()->getMinor() !== ''
         && $this->getActualVersion()->getMinor() !== '*'
-        && $this->getNewVersion()->getMinor()
-        && $this->getActualVersion()->getMinor() < $this->getNewVersion()->getMinor();
+        && $this->getNewVersion()->getMinor() !== ''
+        && Comparator::greaterThan($this->getNewVersion()->getMinor(), $this->getActualVersion()->getMinor());
     }
 
     public function isPatchUpdate(): bool
     {
         return !$this->isMajorUpdate()
             && !$this->isMinorUpdate()
-            && $this->getActualVersion()->getPatch()
+            && $this->getActualVersion()->getPatch() !== ''
             && $this->getActualVersion()->getPatch() !== '*'
-            && $this->getNewVersion()->getPatch()
-            && $this->getActualVersion()->getPatch() < $this->getNewVersion()->getPatch();
+            && $this->getNewVersion()->getPatch() !== ''
+            && Comparator::greaterThan($this->getNewVersion()->getPatch(), $this->getActualVersion()->getPatch());
     }
 
     /**
@@ -212,15 +228,20 @@ final class Package
                 $versionRange = $versionRange->map(fn($v) => trim($v))->filter(fn($v) => !empty($v));
 
                 if ($versionRange->count() >= 2) {
-                    $this->lowerBound = new Version($versionRange->first());
-                    $this->upperBound = new Version($versionRange->get($versionRange->count() - 1));
+                    $lower = $versionRange->first();
+                    $upper = $versionRange->get($versionRange->count() - 1);
+                    if (!is_string($lower) || !is_string($upper)) {
+                        return $version;
+                    }
+                    $this->lowerBound = new Version($lower);
+                    $this->upperBound = new Version($upper);
 
                     $this->boundary = ($separator === ' ' || $separator === ' - ') ? $separator : ' ' . trim($separator) . ' ';
                     if ($separator === ',') {
                         $this->boundary = ', ';
                     }
 
-                    $version = $versionRange->get($versionRange->count() - 1);
+                    $version = $upper;
                 }
             }
         }

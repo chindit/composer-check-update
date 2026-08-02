@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Exception\ComposerNotFoundException;
 use App\Exception\InvalidComposerException;
 use App\Model\Package;
 use App\Service\JsonService;
@@ -15,11 +14,11 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\QuestionHelper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\ChoiceQuestion;
-use Symfony\Component\HttpClient\HttpClient;
 
 #[AsCommand(name:'app:check-updates')]
 class CheckUpdatesCommand extends Command
@@ -31,16 +30,14 @@ class CheckUpdatesCommand extends Command
 	/** @var array<int, string> */
 	private array $errors = [];
 
-	public function __construct(?string $name = null)
+	public function __construct(PackagistService $packagistService, ?string $name = null)
 	{
 		parent::__construct($name);
 
-		$this->packages = new Collection();
-		$this->packagistService = new PackagistService(HttpClient::create([
-            'headers' => [
-                'User-Agent' => 'composer-check-update (https://github.com/chindit/composer-check-update)'
-            ]
-        ]));
+		$packages = new Collection();
+        /** @var Collection<int, Package> $packages */
+		$this->packages = $packages;
+		$this->packagistService = $packagistService;
 	}
 
 	protected function configure(): void
@@ -60,12 +57,11 @@ class CheckUpdatesCommand extends Command
 	{
 		// 1) Create JsonService
 		try {
-			$this->json = new JsonService($input->getOption('composer'));
-		} catch (ComposerNotFoundException $exception) {
-			$output->writeln('<error>Unable to find a composer.json file in «' . $exception->getComposerSearchPath() . '»</error>');
-			$output->writeln('<comment>Try using «-c /path/to/my/project» to specify correct location to your composer.json file</comment>');
-
-			return Command::FAILURE;
+            $composerPath = $input->getOption('composer');
+            if (!is_string($composerPath)) {
+                $composerPath = '.';
+            }
+			$this->json = new JsonService($composerPath);
 		} catch (InvalidComposerException $exception) {
 			$output->writeln('<error>Your composer.json does not contains «require» nor «require-dev» sections</error>');
 
@@ -121,9 +117,11 @@ class CheckUpdatesCommand extends Command
 			$output->writeln('<info>All packages are up to date</info>');
 		}
 
-        $upgradeType = $input->getOption('level');
+        $levelOption = $input->getOption('level');
+        $upgradeType = is_string($levelOption) ? $levelOption : 'all';
 
         if ($input->getOption('interactive')) {
+            /** @var QuestionHelper $helper */
             $helper = $this->getHelper('question');
             $question = new ChoiceQuestion(
                 'Do you want to update all packages, minors and patch, patch only or mothing ?',
@@ -134,15 +132,23 @@ class CheckUpdatesCommand extends Command
 
             $question->setErrorMessage('Value %s is invalid.');
 
-            $upgradeType = $helper->ask($input, $output, $question);
-            $upgradeType = match ($upgradeType) {
+            $answer = $helper->ask($input, $output, $question);
+            $upgradeType = match (is_string($answer) ? $answer : 'all (default)') {
                 'all (default)' => 'all',
-                default => $upgradeType,
+                default => is_string($answer) ? $answer : 'all',
             };
         }
 
         if ($input->getOption('interactive') || $input->getOption('update')) {
-            $exclude = $input->getOption('exclude');
+            $excludeOption = $input->getOption('exclude');
+            $exclude = [];
+            if (is_array($excludeOption)) {
+                foreach ($excludeOption as $packageName) {
+                    if (is_string($packageName)) {
+                        $exclude[] = $packageName;
+                    }
+                }
+            }
 
             $packagesToUpdate = $this->packages->filter(function(Package $package) use ($upgradeType, $exclude) {
                 if (in_array($package->getName(), $exclude, true)) {

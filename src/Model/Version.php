@@ -5,6 +5,7 @@ namespace App\Model;
 
 
 use Chindit\Collection\Collection;
+use Composer\Semver\Comparator;
 
 final class Version implements \Stringable
 {
@@ -18,7 +19,6 @@ final class Version implements \Stringable
     public function __construct(string $version)
     {
         $version = trim($version);
-
         // Handle alias 'as'
         if (str_contains($version, ' as ')) {
             [$this->version, $this->alias] = explode(' as ', $version, 2);
@@ -46,7 +46,7 @@ final class Version implements \Stringable
 
         // Get numeric part for chunks (handle 1.2.3-beta1 -> 1.2.3)
         $numericPart = '';
-        preg_match('/^[0-9\.\*]+/', $this->version, $matches);
+        preg_match('/^[0-9\.\*]+/', $cleanVersion, $matches);
         if (!empty($matches)) {
             $numericPart = $matches[0];
         }
@@ -69,17 +69,17 @@ final class Version implements \Stringable
 
     public function getMajor(): string
     {
-        return $this->chunks[0] ?? '';
+        return (string)($this->chunks[0] ?? '');
     }
 
     public function getMinor(): string
     {
-        return $this->chunks[1] ?? '';
+        return (string)($this->chunks[1] ?? '');
     }
 
     public function getPatch(): string
     {
-        return $this->chunks[2] ?? '';
+        return (string)($this->chunks[2] ?? '');
     }
 
     public function getVersion(): string
@@ -104,7 +104,7 @@ final class Version implements \Stringable
 
     public function isGreaterThan(Version $version): bool
     {
-        return version_compare($this->getVersion(), $version->getVersion(), '>');
+        return Comparator::greaterThan($this->version, $version->getVersion());
     }
 
     public function __toString(): string
@@ -131,7 +131,7 @@ final class Version implements \Stringable
     {
         $version = match($size) {
             1 => $this->getMajor(),
-            2 => implode('.', [$this->getMajor(), $this->getMinor()]),
+            2 => implode('.', array_filter([$this->getMajor(), $this->getMinor()], fn($s) => $s !== '')),
             default => $this->getVersion()
         };
 

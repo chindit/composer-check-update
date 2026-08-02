@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Exception\InvalidPackageException;
+use Composer\Semver\Comparator;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -31,14 +32,33 @@ class PackagistService
 				throw new InvalidPackageException(sprintf('«%s» is not a valid composer package', $dependency));
 			}
 
-			return $this->getLastVersionFromResponse($response['packages'][$dependency]);
+			$packageData = $response['packages'][$dependency];
+            if (!is_array($packageData)) {
+                throw new InvalidPackageException('Invalid package data from Packagist');
+            }
+
+            /** @var array<int, array<string, string>> $normalizedPackageData */
+            $normalizedPackageData = [];
+            foreach ($packageData as $key => $val) {
+                if (is_int($key) && is_array($val)) {
+                    $item = [];
+                    foreach ($val as $k => $v) {
+                        if (is_string($k) && is_string($v)) {
+                            $item[$k] = $v;
+                        }
+                    }
+                    $normalizedPackageData[$key] = $item;
+                }
+            }
+
+			return $this->getLastVersionFromResponse($normalizedPackageData);
 		} catch (TransportExceptionInterface $exception) {
 			throw new InvalidPackageException($exception->getMessage());
 		}
 	}
 
     /**
-     * @param array<string, array> $package
+     * @param array<int, array<string, string>> $package
      * @return string
      * @throws InvalidPackageException
      */
@@ -46,8 +66,8 @@ class PackagistService
 	{
         // API v2 returns an array of version objects
         // Format: [{"version": "1.0.0", ...}, {"version": "1.1.0", ...}]
-        $versions = array_map(function($v) {
-            return is_array($v) ? ($v['version'] ?? '') : (string)$v;
+        $versions = array_map(function(array $v): string {
+            return $v['version'] ?? '';
         }, $package);
 		
 		// Filter out development branches (dev-*) and keep only version-like strings
@@ -92,13 +112,7 @@ class PackagistService
 			$lastVersion = implode('.', array_slice($lastVersionChunks, 0, $chunksNumber));
 		}
 
-		/**
-		 * Output for version_compare is
-		 * -1 if $lastVersion is OLDER (smaller) THAN $composerVersionCleaned
-		 * 0 if $lastVersion is EQUAL TO $composerVersionCleaned
-		 * 1 if $lastVersion is NEWER (greater) THAN $composerVersionCleaned
-		 */
-		if (version_compare($lastVersion, $composerVersionCleaned) === 1) {
+		if (Comparator::greaterThan($lastVersion, $composerVersionCleaned)) {
             return $this->findVersionPattern($composerVersion, $lastVersion);
 		}
 
@@ -122,7 +136,8 @@ class PackagistService
 			$nbChunksNewVersion = substr_count($lastVersion, '.');
 
 			if ($nbChunksBeforeStar === $nbChunksNewVersion) {
-				$lastVersion = substr($lastVersion, 0, strrpos($lastVersion, '.')) . '.*';
+                $lastDot = strrpos($lastVersion, '.');
+				$lastVersion = ($lastDot !== false ? substr($lastVersion, 0, $lastDot) : $lastVersion) . '.*';
 			} else {
 				$chunks = explode('.', $lastVersion);
 				$chunks = array_slice($chunks, 0, $nbChunksBeforeStar);

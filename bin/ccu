@@ -3,10 +3,16 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use App\Command\CheckUpdatesCommand;
+use App\Service\PackagistService;
 use Symfony\Component\Console\Application;
+use Symfony\Component\HttpClient\HttpClient;
 
-$application = new Application('composer-check-update', '2.0.2');
-$command = new CheckUpdatesCommand();
+$application = new Application('composer-check-update', '3.0.0');
+$command = new CheckUpdatesCommand(new PackagistService(HttpClient::create([
+    'headers' => [
+        'User-Agent' => 'composer-check-update (https://github.com/chindit/composer-check-update)',
+    ],
+])));
 
 $application->add($command);
 

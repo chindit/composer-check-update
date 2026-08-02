@@ -15,7 +15,6 @@ class PackagistServiceTest extends TestCase
         
         $reflection = new \ReflectionClass($service);
         $method = $reflection->getMethod('getLastVersionFromResponse');
-        $method->setAccessible(true);
         
         $packageData = [
             ['version' => '1.0.0'],
