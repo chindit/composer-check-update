@@ -15,7 +15,7 @@
         "phpstan/phpstan": "^2.2.7",
         "symfony/test-pack": "^1.2",
         "symfony/maker-bundle": "^1.67",
-        "pestphp/pest": "^4.3"
+        "pestphp/pest": "^5.0"
     },
     "license": "GPL-3.0-only",
     "authors": [

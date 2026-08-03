@@ -14,7 +14,7 @@ $command = new CheckUpdatesCommand(new PackagistService(HttpClient::create([
     ],
 ])));
 
-$application->add($command);
+$application->addCommand($command);
 
 $application->setDefaultCommand($command->getName(), true);
 $application->run();
